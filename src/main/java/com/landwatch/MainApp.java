@@ -1,5 +1,6 @@
 package com.landwatch;
 
+import com.landwatch.ui.controllers.DashboardController;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -22,6 +23,8 @@ public class MainApp extends Application {
     public static final double MIN_WIDTH = 1080;
     public static final double MIN_HEIGHT = 700;
 
+    private DashboardController controller;
+
     @Override
     public void start(Stage primaryStage) {
         try {
@@ -32,6 +35,7 @@ public class MainApp extends Application {
 
             FXMLLoader loader = new FXMLLoader(fxmlLocation);
             Parent root = loader.load();
+            controller = loader.getController();
 
             Scene scene = new Scene(root, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
@@ -49,6 +53,14 @@ public class MainApp extends Application {
         } catch (IOException e) {
             System.err.println("Failed to load application layout: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /** Releases the deep model's native resources when the application exits. */
+    @Override
+    public void stop() {
+        if (controller != null) {
+            controller.shutdown();
         }
     }
 

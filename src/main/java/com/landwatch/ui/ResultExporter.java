@@ -73,11 +73,26 @@ public final class ResultExporter {
     public static List<File> export(File outputDirectory, String base, EngineResult result,
                                     ChangeVisualizationSet visuals, String inputDescription,
                                     LocalDateTime when) throws IOException {
+        return export(outputDirectory, base, result, visuals, inputDescription, when, null);
+    }
+
+    /**
+     * Like {@link #export(File, String, EngineResult, ChangeVisualizationSet, String, LocalDateTime)} but
+     * appends {@code extraSection} (for example the per-image comparison with a ground-truth label) to the
+     * summary file. {@code null} or blank adds nothing.
+     */
+    public static List<File> export(File outputDirectory, String base, EngineResult result,
+                                    ChangeVisualizationSet visuals, String inputDescription,
+                                    LocalDateTime when, String extraSection) throws IOException {
         List<File> files = new ArrayList<>(ChangeVisualizer.saveVisualizationSet(outputDirectory, base,
                 visuals.getBinaryMask(), visuals.getRedOverlay(), visuals.getThematicMap()));
 
         File summary = new File(outputDirectory, base + SUFFIX_SUMMARY);
-        Files.writeString(summary.toPath(), buildSummary(result, inputDescription, when), StandardCharsets.UTF_8);
+        String text = buildSummary(result, inputDescription, when);
+        if (extraSection != null && !extraSection.isBlank()) {
+            text = text + '\n' + extraSection + (extraSection.endsWith("\n") ? "" : "\n");
+        }
+        Files.writeString(summary.toPath(), text, StandardCharsets.UTF_8);
         files.add(summary);
         return files;
     }

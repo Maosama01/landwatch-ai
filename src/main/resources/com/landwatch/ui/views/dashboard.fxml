@@ -52,12 +52,11 @@
 
             <!-- Navigation Links -->
             <VBox spacing="8.0" VBox.vgrow="ALWAYS">
-                <Button maxWidth="Infinity" styleClass="nav-button, nav-button-active" text="📊  Dashboard Overview" />
-                <Button maxWidth="Infinity" styleClass="nav-button" text="🛰️  Change Detection" />
-                <Button maxWidth="Infinity" styleClass="nav-button" text="🧠  NN Fundamentals" />
-                <Button maxWidth="Infinity" styleClass="nav-button" text="📈  Model Benchmarks" />
-                <Button maxWidth="Infinity" styleClass="nav-button" text="⚠️  Failure Analysis" />
-                <Button maxWidth="Infinity" styleClass="nav-button" text="⚙️  System Settings" />
+                <Button fx:id="navAnalysisButton" maxWidth="Infinity" onAction="#handleNavAnalysis" styleClass="nav-button, nav-button-active" text="🛰️  Change Detection" />
+                <Button fx:id="navBenchmarksButton" maxWidth="Infinity" onAction="#handleNavBenchmarks" styleClass="nav-button" text="📈  Model Benchmarks" />
+                <Button fx:id="navFundamentalsButton" maxWidth="Infinity" onAction="#handleNavFundamentals" styleClass="nav-button" text="🧠  NN Fundamentals" />
+                <Button fx:id="navFailureButton" maxWidth="Infinity" onAction="#handleNavFailure" styleClass="nav-button" text="⚠️  Failure Analysis" />
+                <Button fx:id="navAboutButton" maxWidth="Infinity" onAction="#handleNavAbout" styleClass="nav-button" text="ℹ️  About / Runtime" />
             </VBox>
 
             <!-- Sidebar Footer Status -->
@@ -75,6 +74,7 @@
 
     <!-- CENTER MAIN CONTENT -->
     <center>
+      <StackPane fx:id="pageStack">
         <ScrollPane fx:id="contentScrollPane" fitToWidth="true" hbarPolicy="NEVER" styleClass="content-scroll-pane">
             <VBox spacing="18.0" styleClass="main-content">
                 <padding>
@@ -173,6 +173,11 @@
                     <HBox alignment="CENTER_LEFT" spacing="14.0">
                         <Button fx:id="analyzeButton" disable="true" minWidth="-Infinity" onAction="#handleAnalyzeChanges" styleClass="btn-primary" text="⚡  Analyze Changes" />
                         <Button fx:id="loadDemoButton" minWidth="-Infinity" onAction="#handleLoadDemoPair" styleClass="btn-secondary" text="🌟  Load Demo Pair" />
+                        <Button fx:id="loadLevirButton" minWidth="-Infinity" onAction="#handleLoadLevirPair" styleClass="btn-secondary" text="🛰️  Load LEVIR-CD Pair…">
+                            <tooltip>
+                                <Tooltip text="Pick an image in a LEVIR-CD split's A/ or B/ folder: the matching A, B and label/ files (same file name) are loaded, so results can be compared with the ground truth." wrapText="true" maxWidth="340.0" />
+                            </tooltip>
+                        </Button>
                         <Button fx:id="resetButton" minWidth="-Infinity" onAction="#handleReset" styleClass="btn-outline" text="🔄  Reset Inputs" />
                         <ProgressBar fx:id="analysisProgressBar" maxWidth="Infinity" progress="-1.0" visible="false" HBox.hgrow="ALWAYS" />
                     </HBox>
@@ -199,13 +204,21 @@
 
                         <!-- Row 2: view-mode toggles (own row so labels never truncate) -->
                         <HBox alignment="CENTER_LEFT" spacing="6.0">
-                            <Label minWidth="-Infinity" styleClass="control-label-small" text="View:" />
+                            <Label minWidth="42.0" prefWidth="42.0" styleClass="control-label-small" text="View:" />
                             <ToggleButton fx:id="modeMaskToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Binary Mask" toggleGroup="$viewModeGroup" userData="BINARY_MASK" />
                             <ToggleButton fx:id="modeOverlayToggle" disable="true" minWidth="-Infinity" selected="true" styleClass="mode-toggle" text="Red Overlay" toggleGroup="$viewModeGroup" userData="RED_OVERLAY" />
                             <ToggleButton fx:id="modeChangeMapToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Change Map" toggleGroup="$viewModeGroup" userData="CHANGE_MAP" />
                         </HBox>
 
-                        <StackPane fx:id="changeMapContainer" minHeight="250.0" minWidth="0.0" prefHeight="250.0" styleClass="image-container">
+                        <!-- Row 3: views that need a ground-truth label (LEVIR-CD pairs only) -->
+                        <HBox alignment="CENTER_LEFT" spacing="6.0">
+                            <Label minWidth="42.0" prefWidth="42.0" styleClass="control-label-small" text="Label:" />
+                            <ToggleButton fx:id="modeGroundTruthToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Ground Truth" toggleGroup="$viewModeGroup" userData="GROUND_TRUTH" />
+                            <ToggleButton fx:id="modeErrorsToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Errors vs GT" toggleGroup="$viewModeGroup" userData="ERRORS" />
+                            <Label fx:id="gtViewNote" maxWidth="Infinity" minWidth="0.0" styleClass="control-label-small" text="" wrapText="true" HBox.hgrow="ALWAYS" />
+                        </HBox>
+
+                        <StackPane fx:id="changeMapContainer" minHeight="250.0" minWidth="0.0" prefHeight="250.0" styleClass="image-container" VBox.vgrow="ALWAYS">
                             <VBox fx:id="changeMapPlaceholder" alignment="CENTER" spacing="8.0">
                                 <padding>
                                     <Insets left="12.0" right="12.0" />
@@ -244,6 +257,7 @@
                             </padding>
                             <Label styleClass="metric-caption" text="RESULTS PRODUCED BY" />
                             <Label fx:id="statEngine" styleClass="metric-engine" text="-- (no analysis run yet)" wrapText="true" />
+                            <Label fx:id="statInput" styleClass="metric-sub" text="" wrapText="true" />
                         </VBox>
 
                         <GridPane hgap="8.0" vgap="8.0">
@@ -292,10 +306,49 @@
                             </Label>
                             <Label fx:id="statChangeLevel" minWidth="-Infinity" styleClass="stat-value-badge" text="Awaiting Data" />
                         </HBox>
+                        <Label fx:id="statAreaM2" managed="false" styleClass="stat-note-plain" text="" visible="false" wrapText="true" />
+
+                        <!-- Per-image comparison with the ground-truth label (LEVIR-CD pairs only) -->
+                        <VBox fx:id="gtBlock" spacing="8.0" styleClass="gt-block">
+                            <padding>
+                                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                            </padding>
+                            <HBox alignment="CENTER_LEFT" spacing="8.0">
+                                <Label maxWidth="Infinity" styleClass="gt-title" text="COMPARED WITH GROUND TRUTH (THIS IMAGE)" wrapText="true" HBox.hgrow="ALWAYS" />
+                                <Label minWidth="-Infinity" styleClass="badge-warning" text="PER IMAGE" />
+                            </HBox>
+                            <GridPane fx:id="gtTiles" hgap="8.0" vgap="8.0">
+                                <columnConstraints>
+                                    <ColumnConstraints percentWidth="25.0" />
+                                    <ColumnConstraints percentWidth="25.0" />
+                                    <ColumnConstraints percentWidth="25.0" />
+                                    <ColumnConstraints percentWidth="25.0" />
+                                </columnConstraints>
+                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0">
+                                    <Label styleClass="metric-caption" text="F1" />
+                                    <Label fx:id="gtF1" styleClass="metric-value" text="--" />
+                                </VBox>
+                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1">
+                                    <Label styleClass="metric-caption" text="IoU" />
+                                    <Label fx:id="gtIoU" styleClass="metric-value" text="--" />
+                                </VBox>
+                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="2">
+                                    <Label styleClass="metric-caption" text="PRECISION" />
+                                    <Label fx:id="gtPrecision" styleClass="metric-value" text="--" />
+                                </VBox>
+                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="3">
+                                    <Label styleClass="metric-caption" text="RECALL" />
+                                    <Label fx:id="gtRecall" styleClass="metric-value" text="--" />
+                                </VBox>
+                            </GridPane>
+                            <Label fx:id="gtCounts" styleClass="metric-sub" text="" wrapText="true" />
+                            <Label fx:id="gtBenchmark" styleClass="metric-sub" text="" wrapText="true" />
+                            <Label fx:id="gtNote" styleClass="gt-note" text="" wrapText="true" />
+                        </VBox>
 
                         <Region VBox.vgrow="ALWAYS" />
                         <Label styleClass="stat-note" wrapText="true"
-                               text="Statistics are computed from the selected engine's binary change mask. Areas are given in pixels: no ground-sample-distance calibration is applied." />
+                               text="Statistics are computed from the selected engine's binary change mask. Areas are given in pixels: no ground-sample-distance calibration is applied to arbitrary inputs." />
                     </VBox>
                <rowConstraints>
                   <RowConstraints />
@@ -316,6 +369,7 @@
 
             </VBox>
         </ScrollPane>
+      </StackPane>
     </center>
 
 </BorderPane>
