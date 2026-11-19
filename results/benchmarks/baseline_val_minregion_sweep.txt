@@ -1,0 +1,32 @@
+================================================================================
+ LANDWATCH AI - Baseline minRegionSize exploration (VAL SPLIT ONLY)
+================================================================================
+This is an exploration on the val split only. It was NOT used to
+choose the parameters of the reported test result: baseline_test_metrics.txt uses
+the untouched default minRegionSize = 12. No value from this sweep has been run on test.
+
+Dataset        : LEVIR-CD (datasets/LEVIR-CD)
+Split          : val (64 full-resolution image pairs)
+Method         : BaselineChangeDetector.analyze(pre, post, minRegionSize); everything
+                 else unchanged (luminance difference, per-image Otsu, 3x3 opening)
+Ground truth   : label pixel value > 0 = change
+Protocol       : one global pixel confusion matrix per minRegionSize value
+Timestamp      : 2026-11-19T20:15:16+05:30
+Java / os.arch : 17.0.21.1 / aarch64
+Wall time      : 42.1 s
+
+Global metrics per minRegionSize
+--------------------------------------------------------------------------------
+minRegionSize  precision    recall        F1       IoU     kappa           TP           FP           FN
+1                 0.0568    0.2663    0.0937    0.0491    0.0263       750052     12446204      2066216
+12 (default)      0.0573    0.2625    0.0941    0.0494    0.0270       739170     12159023      2077098
+25                0.0584    0.2530    0.0949    0.0498    0.0286       712385     11490029      2103883
+50                0.0598    0.2424    0.0959    0.0504    0.0306       682607     10738233      2133661
+100               0.0616    0.2295    0.0971    0.0511    0.0332       646373      9845230      2169895
+200               0.0642    0.2160    0.0990    0.0521    0.0367       608213      8861905      2208055
+400               0.0657    0.1975    0.0986    0.0519    0.0381       556272      7906909      2259996
+800               0.0665    0.1773    0.0967    0.0508    0.0379       499330      7014219      2316938
+
+Highest val change-F1 in this sweep: minRegionSize = 200 (F1 = 0.0990).
+Any value chosen from this table would have to be evaluated once on test, as a
+separate and clearly labelled run. That has not been done.

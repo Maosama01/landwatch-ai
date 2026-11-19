@@ -1,0 +1,77 @@
+================================================================================
+ LANDWATCH AI - Classical baseline change detection on LEVIR-CD
+================================================================================
+Dataset        : LEVIR-CD (datasets/LEVIR-CD)
+Split          : val
+Images         : 64 image pairs, full resolution (1024x1024), no tiling, no resizing
+Method         : com.landwatch.geospatial.BaselineChangeDetector.analyze(pre, post)
+                 classical pixel differencing, no learning, no training data used
+Pipeline       : BT.601 luminance -> |post - pre| -> per-image Otsu threshold
+                 -> 3x3 morphological opening -> 8-connected components,
+                 components smaller than minRegionSize pixels removed
+Parameters     : minRegionSize = 12 (DEFAULT_MIN_REGION_SIZE, untouched default; not tuned)
+                 Otsu threshold chosen automatically for each image
+Ground truth   : label pixel value > 0 = change (also catches stray 156/254 values)
+Protocol       : one global pixel confusion matrix over all images,
+                 positive class = change (BinaryChangeMetrics)
+Per-image data : baseline_val_per_image.csv
+
+Global metrics (val split)
+--------------------------------------------------------------------------------
+Confusion matrix (pixels): TP=739170  FP=12159023  FN=2077098  TN=52133573  (total 67108864)
+Change precision : 0.0573
+Change recall    : 0.2625
+Change F1        : 0.0941
+Change IoU       : 0.0494
+Macro F1         : 0.4870
+Mean IoU         : 0.4174
+Cohen's kappa    : 0.0270
+Pixel accuracy   : 0.7879  (misleading alone: classes are imbalanced)
+
+True change pixels      : 2816268 (4.1966% of all pixels)
+Predicted change pixels : 12898193 (19.2198% of all pixels)
+Images with no true change pixels      : 8 of 64
+Images with no predicted change pixels : 0 of 64
+
+Latency per image pair, milliseconds (64 images)
+--------------------------------------------------------------------------------
+analyze() wall clock      : mean 56.5 | median 52.3 | min 31.4 | max 215.1
+  System.nanoTime around BaselineChangeDetector.analyze(pre, post); includes the
+  binary and overlay visualisation images that analyze() always builds; excludes
+  PNG decoding and metric computation.
+detector-reported time    : mean 25.5 | median 23.0 | min 13.0 | max 114.0
+  ChangeDetectionResult.getExecutionTimeMs() (System.currentTimeMillis, 1 ms
+  resolution); covers the detection steps, not the visualisation images.
+PNG loading (A + B + label): mean 85.0 | median 47.2 | min 34.7 | max 2202.3
+Total benchmark wall time : 9.2 s
+  Single thread, images processed sequentially. No warm-up runs were excluded, so the
+  first images include JVM/JIT warm-up; the median is the most robust figure.
+System load average (1 min) at start / end: 3.38 / 2.94 on 8 cores;
+  a load well above 1 means other processes shared the CPU, so latency is indicative only.
+
+Environment
+--------------------------------------------------------------------------------
+Timestamp (run start) : 2026-11-19T20:14:21+05:30
+Java                  : 17.0.21.1 (Homebrew, OpenJDK 64-Bit Server VM)
+OS                    : Mac OS X 27.2.1, os.arch=aarch64
+CPU cores visible     : 8 (benchmark uses 1)
+Max JVM heap          : 2048 MB
+Reproduce             : java -cp target/classes com.landwatch.evaluation.BaselineBenchmark val datasets/LEVIR-CD <outputDir>
+
+Limitations (read before comparing with a learned model)
+--------------------------------------------------------------------------------
+* Pixel differencing reacts to ANY brightness difference, not only to real change.
+  Illumination and sun-angle differences, shadows, seasonal vegetation, haze and
+  small registration offsets between A and B all produce false positives.
+* LEVIR-CD labels only building changes (construction and demolition). Genuine
+  non-building changes (roads, bare soil, vegetation, water, vehicles) are scored
+  as false positives under this protocol.
+* Only luminance is compared: a new structure whose brightness is close to what was
+  there before is missed (false negatives), whatever its colour or texture.
+* Otsu always splits the difference histogram into two classes, so even an image
+  with little or no real change gets its most-different pixels flagged.
+* Metrics come from one global confusion matrix, so images with many pixels of
+  change weigh more. In the per-image CSV, precision/recall/F1/IoU are 0.0 when
+  their denominator is 0 (BinaryChangeMetrics convention), e.g. F1 = 0.0 for an
+  image with no true and no predicted change.
+* Latency depends on the machine and JVM; treat it as indicative only.

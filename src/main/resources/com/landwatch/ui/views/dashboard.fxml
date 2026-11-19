@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefHeight="840.0" prefWidth="1280.0" styleClass="root-pane"
+            xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.landwatch.ui.controllers.DashboardController">
+
+    <fx:define>
+        <ToggleGroup fx:id="viewModeGroup" />
+    </fx:define>
+
+    <!-- LEFT NAVIGATION SIDEBAR -->
+    <left>
+        <VBox prefWidth="260.0" minWidth="260.0" spacing="15.0" styleClass="sidebar">
+            <padding>
+                <Insets bottom="20.0" left="20.0" right="20.0" top="24.0" />
+            </padding>
+
+            <!-- Brand Header -->
+            <VBox spacing="4.0">
+                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                    <Label styleClass="brand-logo" text="🌍" />
+                    <Label styleClass="brand-title" text="LANDWATCH AI" />
+                </HBox>
+                <Label styleClass="brand-subtitle" text="Satellite Change &amp; Encroachment" wrapText="true" />
+                <Label styleClass="brand-tag" text="Project 50 • Geospatial Intel" />
+            </VBox>
+
+            <Separator styleClass="sidebar-divider" />
+
+            <!-- Navigation Links -->
+            <VBox spacing="8.0" VBox.vgrow="ALWAYS">
+                <Button maxWidth="Infinity" styleClass="nav-button, nav-button-active" text="📊  Dashboard Overview" />
+                <Button maxWidth="Infinity" styleClass="nav-button" text="🛰️  Change Detection" />
+                <Button maxWidth="Infinity" styleClass="nav-button" text="🧠  NN Fundamentals" />
+                <Button maxWidth="Infinity" styleClass="nav-button" text="📈  Model Benchmarks" />
+                <Button maxWidth="Infinity" styleClass="nav-button" text="⚠️  Failure Analysis" />
+                <Button maxWidth="Infinity" styleClass="nav-button" text="⚙️  System Settings" />
+            </VBox>
+
+            <!-- Sidebar Footer Status -->
+            <VBox spacing="8.0" styleClass="status-card">
+                <padding>
+                    <Insets bottom="12.0" left="12.0" right="12.0" top="12.0" />
+                </padding>
+                <Label styleClass="status-title" text="SYSTEM TELEMETRY" />
+                <Label fx:id="systemStatusLabel" styleClass="status-item" text="System: Standby" wrapText="true" />
+                <Label fx:id="engineModeLabel" styleClass="status-item" text="Engine: Classical baseline" wrapText="true" />
+                <Label styleClass="status-item-faint" text="Demonstration: Nov 2026" />
+            </VBox>
+        </VBox>
+    </left>
+
+    <!-- CENTER MAIN CONTENT -->
+    <center>
+        <ScrollPane fx:id="contentScrollPane" fitToWidth="true" hbarPolicy="NEVER" styleClass="content-scroll-pane">
+            <VBox spacing="18.0" styleClass="main-content">
+                <padding>
+                    <Insets bottom="24.0" left="28.0" right="28.0" top="22.0" />
+                </padding>
+
+                <!-- Page Header Bar -->
+                <HBox alignment="CENTER_LEFT" spacing="12.0">
+                    <VBox spacing="3.0" HBox.hgrow="ALWAYS">
+                        <Label styleClass="page-title" text="Multitemporal Satellite Change Analysis" wrapText="true" />
+                        <Label styleClass="page-subtitle" wrapText="true"
+                               text="Compare a co-registered before/after image pair of the same site and map pixel-level change, such as new construction or cleared land." />
+                    </VBox>
+                    <Label minWidth="-Infinity" styleClass="badge-academic" text="Academic DL PBL" />
+                </HBox>
+
+                <!-- DUAL SATELLITE IMAGE COMPARISON SECTION -->
+                <GridPane hgap="20.0" vgap="10.0">
+                    <columnConstraints>
+                        <ColumnConstraints percentWidth="50.0" />
+                        <ColumnConstraints percentWidth="50.0" />
+                    </columnConstraints>
+
+                    <!-- BEFORE (Date 1) Card -->
+                    <VBox spacing="10.0" styleClass="card" GridPane.columnIndex="0">
+                        <padding>
+                            <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                        </padding>
+
+                        <HBox alignment="CENTER_LEFT" spacing="8.0">
+                            <Label maxWidth="Infinity" styleClass="card-section-title" text="DATE 1: PRE-EVENT BASELINE" HBox.hgrow="ALWAYS" />
+                            <Label minWidth="-Infinity" styleClass="badge-info" text="BEFORE" />
+                        </HBox>
+
+                        <StackPane fx:id="beforeImageContainer" minHeight="260.0" minWidth="0.0" prefHeight="260.0" styleClass="image-container">
+                            <VBox fx:id="beforePlaceholder" alignment="CENTER" spacing="8.0">
+                                <Label styleClass="upload-icon" text="📂" />
+                                <Label styleClass="placeholder-text" text="No Before Image Selected" />
+                                <Label styleClass="placeholder-subtext" text="Supports PNG, JPG, BMP, TIFF" />
+                            </VBox>
+                            <ImageView fx:id="beforeImageView" fitHeight="250.0" fitWidth="460.0" preserveRatio="true" smooth="true" visible="false" />
+                        </StackPane>
+
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <VBox minWidth="0.0" spacing="2.0" HBox.hgrow="ALWAYS">
+                                <Label fx:id="beforeFilenameLabel" styleClass="file-label" text="No file selected" wrapText="true" />
+                                <Label fx:id="beforeDimensionLabel" styleClass="file-sublabel" text="Resolution: -- x -- px" wrapText="true" />
+                            </VBox>
+                            <Button fx:id="uploadBeforeButton" minWidth="-Infinity" onAction="#handleUploadBefore" styleClass="btn-secondary" text="Browse Before..." />
+                        </HBox>
+                    </VBox>
+
+                    <!-- AFTER (Date 2) Card -->
+                    <VBox spacing="10.0" styleClass="card" GridPane.columnIndex="1">
+                        <padding>
+                            <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                        </padding>
+
+                        <HBox alignment="CENTER_LEFT" spacing="8.0">
+                            <Label maxWidth="Infinity" styleClass="card-section-title" text="DATE 2: POST-EVENT CURRENT" HBox.hgrow="ALWAYS" />
+                            <Label minWidth="-Infinity" styleClass="badge-warning" text="AFTER" />
+                        </HBox>
+
+                        <StackPane fx:id="afterImageContainer" minHeight="260.0" minWidth="0.0" prefHeight="260.0" styleClass="image-container">
+                            <VBox fx:id="afterPlaceholder" alignment="CENTER" spacing="8.0">
+                                <Label styleClass="upload-icon" text="📂" />
+                                <Label styleClass="placeholder-text" text="No After Image Selected" />
+                                <Label styleClass="placeholder-subtext" text="Supports PNG, JPG, BMP, TIFF" />
+                            </VBox>
+                            <ImageView fx:id="afterImageView" fitHeight="250.0" fitWidth="460.0" preserveRatio="true" smooth="true" visible="false" />
+                        </StackPane>
+
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <VBox minWidth="0.0" spacing="2.0" HBox.hgrow="ALWAYS">
+                                <Label fx:id="afterFilenameLabel" styleClass="file-label" text="No file selected" wrapText="true" />
+                                <Label fx:id="afterDimensionLabel" styleClass="file-sublabel" text="Resolution: -- x -- px" wrapText="true" />
+                            </VBox>
+                            <Button fx:id="uploadAfterButton" minWidth="-Infinity" onAction="#handleUploadAfter" styleClass="btn-secondary" text="Browse After..." />
+                        </HBox>
+                    </VBox>
+               <rowConstraints>
+                  <RowConstraints />
+               </rowConstraints>
+                </GridPane>
+
+                <!-- ACTION CONTROLS BAR: engine selector + actions -->
+                <VBox fx:id="actionBar" spacing="12.0" styleClass="action-bar">
+                    <padding>
+                        <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />
+                    </padding>
+                    <HBox alignment="CENTER_LEFT" spacing="10.0">
+                        <Label minWidth="-Infinity" styleClass="control-label" text="Detection engine" />
+                        <ComboBox fx:id="engineComboBox" minWidth="-Infinity" prefWidth="300.0" styleClass="engine-combo" />
+                        <Label fx:id="engineNoteLabel" maxWidth="Infinity" minWidth="0.0" styleClass="engine-note" text="" wrapText="true" HBox.hgrow="ALWAYS" />
+                    </HBox>
+                    <HBox alignment="CENTER_LEFT" spacing="14.0">
+                        <Button fx:id="analyzeButton" disable="true" minWidth="-Infinity" onAction="#handleAnalyzeChanges" styleClass="btn-primary" text="⚡  Analyze Changes" />
+                        <Button fx:id="loadDemoButton" minWidth="-Infinity" onAction="#handleLoadDemoPair" styleClass="btn-secondary" text="🌟  Load Demo Pair" />
+                        <Button fx:id="resetButton" minWidth="-Infinity" onAction="#handleReset" styleClass="btn-outline" text="🔄  Reset Inputs" />
+                        <ProgressBar fx:id="analysisProgressBar" maxWidth="Infinity" progress="-1.0" visible="false" HBox.hgrow="ALWAYS" />
+                    </HBox>
+                </VBox>
+
+                <!-- RESULTS & CHANGE-MAP DISPLAY -->
+                <GridPane fx:id="resultsGrid" hgap="18.0" vgap="10.0">
+                    <columnConstraints>
+                        <ColumnConstraints percentWidth="58.0" />
+                        <ColumnConstraints percentWidth="42.0" />
+                    </columnConstraints>
+
+                    <!-- Change Map Card -->
+                    <VBox spacing="10.0" styleClass="card" GridPane.columnIndex="0">
+                        <padding>
+                            <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                        </padding>
+
+                        <!-- Row 1: title + engine badge -->
+                        <HBox alignment="CENTER_LEFT" spacing="8.0">
+                            <Label maxWidth="Infinity" styleClass="card-section-title" text="VISUAL CHANGE MAP" wrapText="true" HBox.hgrow="ALWAYS" />
+                            <Label fx:id="resultEngineBadge" minWidth="-Infinity" styleClass="badge-accent" text="NO RESULT YET" />
+                        </HBox>
+
+                        <!-- Row 2: view-mode toggles (own row so labels never truncate) -->
+                        <HBox alignment="CENTER_LEFT" spacing="6.0">
+                            <Label minWidth="-Infinity" styleClass="control-label-small" text="View:" />
+                            <ToggleButton fx:id="modeMaskToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Binary Mask" toggleGroup="$viewModeGroup" userData="BINARY_MASK" />
+                            <ToggleButton fx:id="modeOverlayToggle" disable="true" minWidth="-Infinity" selected="true" styleClass="mode-toggle" text="Red Overlay" toggleGroup="$viewModeGroup" userData="RED_OVERLAY" />
+                            <ToggleButton fx:id="modeChangeMapToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Change Map" toggleGroup="$viewModeGroup" userData="CHANGE_MAP" />
+                        </HBox>
+
+                        <StackPane fx:id="changeMapContainer" minHeight="250.0" minWidth="0.0" prefHeight="250.0" styleClass="image-container">
+                            <VBox fx:id="changeMapPlaceholder" alignment="CENTER" spacing="8.0">
+                                <padding>
+                                    <Insets left="12.0" right="12.0" />
+                                </padding>
+                                <Label styleClass="upload-icon" text="🗺️" />
+                                <Label fx:id="changeMapStatusLabel" styleClass="placeholder-text" text="Awaiting analysis: load a before/after pair and click 'Analyze Changes'" textAlignment="CENTER" wrapText="true" />
+                            </VBox>
+                            <ImageView fx:id="changeMapImageView" fitHeight="240.0" fitWidth="540.0" preserveRatio="true" smooth="true" visible="false" />
+                        </StackPane>
+
+                        <!-- Legend for the current mode -->
+                        <VBox spacing="6.0" styleClass="legend-box">
+                            <padding>
+                                <Insets bottom="8.0" left="10.0" right="10.0" top="8.0" />
+                            </padding>
+                            <HBox alignment="CENTER_LEFT" spacing="8.0">
+                                <Label minWidth="-Infinity" styleClass="legend-title" text="LEGEND" />
+                                <Label fx:id="legendModeLabel" minWidth="-Infinity" styleClass="legend-mode" text="Red Overlay" />
+                            </HBox>
+                            <FlowPane fx:id="legendPane" hgap="16.0" vgap="6.0" />
+                            <Label fx:id="legendCaption" styleClass="legend-caption" text="" wrapText="true" />
+                        </VBox>
+                    </VBox>
+
+                    <!-- Changed-Pixel Statistics Card -->
+                    <VBox spacing="10.0" styleClass="card" GridPane.columnIndex="1">
+                        <padding>
+                            <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                        </padding>
+                        <Label styleClass="card-section-title" text="QUANTITATIVE CHANGE METRICS" wrapText="true" />
+
+                        <!-- Engine that produced the current results -->
+                        <VBox spacing="2.0" styleClass="engine-produced-box">
+                            <padding>
+                                <Insets bottom="8.0" left="10.0" right="10.0" top="8.0" />
+                            </padding>
+                            <Label styleClass="metric-caption" text="RESULTS PRODUCED BY" />
+                            <Label fx:id="statEngine" styleClass="metric-engine" text="-- (no analysis run yet)" wrapText="true" />
+                        </VBox>
+
+                        <GridPane hgap="8.0" vgap="8.0">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="50.0" />
+                                <ColumnConstraints percentWidth="50.0" />
+                            </columnConstraints>
+
+                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                                <Label styleClass="metric-caption" text="CHANGED AREA" />
+                                <Label fx:id="statChangePercent" styleClass="metric-value-hero" text="--" />
+                                <Label styleClass="metric-sub" text="of all pixels" />
+                            </VBox>
+                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                <Label styleClass="metric-caption" text="CHANGED PIXELS" />
+                                <Label fx:id="statChangedPixels" styleClass="metric-value" text="--" />
+                                <Label fx:id="statTotalPixels" styleClass="metric-sub" text="of -- px" />
+                            </VBox>
+                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                                <Label styleClass="metric-caption" text="CHANGE REGIONS" />
+                                <Label fx:id="statRegions" styleClass="metric-value" text="--" />
+                                <Label styleClass="metric-sub" text="8-connected" />
+                            </VBox>
+                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                                <Label styleClass="metric-caption" text="OTSU THRESHOLD" />
+                                <Label fx:id="statOtsu" styleClass="metric-value" text="--" />
+                                <Label fx:id="statOtsuSub" styleClass="metric-sub" text="on |ΔY|, baseline only" />
+                            </VBox>
+                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0" GridPane.rowIndex="2">
+                                <Label styleClass="metric-caption" text="LATENCY" />
+                                <Label fx:id="statLatency" styleClass="metric-value" text="--" />
+                                <Label styleClass="metric-sub" text="engine only" />
+                            </VBox>
+                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1" GridPane.rowIndex="2">
+                                <Label styleClass="metric-caption" text="IMAGE SIZE" />
+                                <Label fx:id="statImageSize" styleClass="metric-value" text="--" />
+                                <Label styleClass="metric-sub" text="width × height" />
+                            </VBox>
+                        </GridPane>
+
+                        <HBox alignment="CENTER_LEFT" spacing="8.0" styleClass="stat-row">
+                            <Label maxWidth="Infinity" styleClass="stat-label" text="Change level (heuristic):" wrapText="true" HBox.hgrow="ALWAYS">
+                                <tooltip>
+                                    <Tooltip text="Rule of thumb from the share of changed pixels only: &lt; 1 % low, 1–5 % moderate, 5–15 % high, ≥ 15 % severe. Not a verified encroachment assessment." wrapText="true" maxWidth="320.0" />
+                                </tooltip>
+                            </Label>
+                            <Label fx:id="statChangeLevel" minWidth="-Infinity" styleClass="stat-value-badge" text="Awaiting Data" />
+                        </HBox>
+
+                        <Region VBox.vgrow="ALWAYS" />
+                        <Label styleClass="stat-note" wrapText="true"
+                               text="Statistics are computed from the selected engine's binary change mask. Areas are given in pixels: no ground-sample-distance calibration is applied." />
+                    </VBox>
+               <rowConstraints>
+                  <RowConstraints />
+               </rowConstraints>
+                </GridPane>
+
+                <!-- SYSTEM AUDIT & PIPELINE LOG -->
+                <VBox spacing="8.0" styleClass="card">
+                    <padding>
+                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                    </padding>
+                    <HBox alignment="CENTER_LEFT" spacing="8.0">
+                        <Label maxWidth="Infinity" styleClass="card-section-title" text="SYSTEM AUDIT &amp; PIPELINE ACTIVITY LOG" wrapText="true" HBox.hgrow="ALWAYS" />
+                        <Label minWidth="-Infinity" styleClass="badge-info" text="REALTIME LOG" />
+                    </HBox>
+                    <TextArea fx:id="activityLogArea" editable="false" prefRowCount="6" styleClass="log-area" wrapText="true" />
+                </VBox>
+
+            </VBox>
+        </ScrollPane>
+    </center>
+
+</BorderPane>

@@ -1,0 +1,85 @@
+================================================================================
+           LEVIR-CD DATASET TILING & VALIDATION (DRY-RUN AUDIT)
+                         LandWatch AI - Project 50
+================================================================================
+Timestamp:             2026-11-19 19:52:21
+Source Directory:      datasets/LEVIR-CD
+Target Output:         datasets/LEVIR-CD/processed_256
+Target Patch Size:     256 x 256 px (non-overlapping, no padding)
+Execution Engine:      PIL (Pillow), every file fully decoded
+Audit Elapsed Time:    25.86 seconds
+
+--------------------------------------------------------------------------------
+1. OUTPUT SAFETY & DIRECTORY STATUS
+--------------------------------------------------------------------------------
+  • Output directory 'processed_256' does not exist yet.
+  • Patches are written to 'processed_256.incomplete' first and renamed to
+    'processed_256' only after every file is written and verified. On failure,
+    only that new folder is removed. Source images are never modified.
+
+--------------------------------------------------------------------------------
+2. DISK SPACE & STORAGE REQUIREMENT AUDIT
+--------------------------------------------------------------------------------
+• Total Source Images (validated):  2357.90 MB (2.30 GB)
+• Estimated Output Storage:         2626.30 MB (2.56 GB)
+  (Method: per source file, size / patches x 1.08, rounded up to the
+   4 KB disk allocation unit, plus metadata CSVs)
+• Actual Free Disk Space:           35570.26 MB (34.74 GB)
+• Storage Verification:             PASSED (needs 3.85 GB incl. 50% safety margin)
+
+--------------------------------------------------------------------------------
+3. VALIDATED PAIRS & EXPECTED PATCH COUNTS BY SPLIT
+--------------------------------------------------------------------------------
+Split  | A     | B     | Mask  | Valid Triplets | Patches/Modality | Total Files
+--------------------------------------------------------------------------------
+train  | 445   | 445   | 445   | 445            | 7120             | 21360      
+val    | 64    | 64    | 64    | 64             | 1024             | 3072       
+test   | 128   | 128   | 128   | 128            | 2048             | 6144       
+--------------------------------------------------------------------------------
+TOTAL  |       |       |       | 637            | 10192            | 30576      
+
+--------------------------------------------------------------------------------
+4. DIMENSIONS, DIVISIBILITY & IMAGE MODES
+--------------------------------------------------------------------------------
+  • [train] 1024x1024 px: 445 triplets, divisible by 256 -> 4x4 = 16 patches per triplet
+    - image modes (A, B, label) = ('RGB', 'RGB', 'L'): 445 triplets
+  • [val] 1024x1024 px: 64 triplets, divisible by 256 -> 4x4 = 16 patches per triplet
+    - image modes (A, B, label) = ('RGB', 'RGB', 'L'): 64 triplets
+  • [test] 1024x1024 px: 128 triplets, divisible by 256 -> 4x4 = 16 patches per triplet
+    - image modes (A, B, label) = ('RGB', 'RGB', 'L'): 128 triplets
+
+--------------------------------------------------------------------------------
+5. GROUND-TRUTH MASK AUDIT (full histogram of every mask)
+--------------------------------------------------------------------------------
+• Masks inspected:          637 (all validated masks, not a sample)
+• Pixel values found:
+    value   0:  636,876,269 px (95.3489%)
+    value 156:          187 px (0.0000%)
+    value 254:          522 px (0.0001%)
+    value 255:   31,065,934 px (4.6510%)
+• Masks with values other than 0/255: 32 of 637
+    - train/label/train_18.png: value 254 x 134 px
+    - train/label/train_22.png: value 254 x 41 px
+    - train/label/train_28.png: value 254 x 30 px
+    - train/label/train_31.png: value 254 x 45 px
+    - train/label/train_56.png: value 254 x 55 px
+    - train/label/train_58.png: value 254 x 68 px
+    - train/label/train_59.png: value 254 x 40 px
+    - train/label/train_60.png: value 254 x 73 px
+    - train/label/train_227.png: value 156 x 1 px
+    - train/label/train_228.png: value 156 x 1 px
+    ... and 22 more
+• Preservation policy:      mask pixels are copied unchanged (no thresholding).
+• Change definition:        0 = no change; any value > 0 = change (LEVIR-CD uses 255).
+                            Used for has_change / change_pixel_count in the metadata.
+• [train] patches containing change: 3167 of 7120 (44.5%); background-only: 3953 (55.5%)
+• [val] patches containing change: 436 of 1024 (42.6%); background-only: 588 (57.4%)
+• [test] patches containing change: 935 of 2048 (45.7%); background-only: 1113 (54.3%)
+
+--------------------------------------------------------------------------------
+6. ERROR & WARNING AUDIT
+--------------------------------------------------------------------------------
+• Validation errors: 0
+  • None. Every triplet is complete, fully decodable, dimension-matched and divisible.
+• Warnings: 0
+================================================================================

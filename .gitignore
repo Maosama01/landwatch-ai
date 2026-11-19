@@ -1,0 +1,39 @@
+# Build output
+target/
+*.class
+
+# IDE / OS files
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+.DS_Store
+._*
+
+# Logs (training logs under results/ are kept as evidence)
+*.log
+!results/**/*.log
+
+# Datasets: the images are large (LEVIR-CD ~5 GB with tiles) and are distributed by their
+# authors for research use, so they are not redistributed here. See README for download links.
+# Small text evidence (inspection / tiling reports, patch metadata) IS kept.
+datasets/raw/
+datasets/EuroSAT/**
+!datasets/EuroSAT/**/
+!datasets/EuroSAT/*.txt
+!datasets/EuroSAT/splits/*.csv
+datasets/LEVIR-CD/**
+!datasets/LEVIR-CD/**/
+!datasets/LEVIR-CD/*.txt
+!datasets/LEVIR-CD/processed_256/preparation_report.txt
+!datasets/LEVIR-CD/processed_256/metadata/*.csv
+*.zip
+
+# Per-run exports written by the dashboard each time "Analyze Changes" is clicked
+results/landwatch_*
+
+# Python cache
+__pycache__/
+*.pyc

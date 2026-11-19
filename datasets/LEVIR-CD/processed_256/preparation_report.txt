@@ -1,0 +1,38 @@
+================================================================================
+              LEVIR-CD DATASET TILING - PREPARATION REPORT
+                         LandWatch AI - Project 50
+================================================================================
+Completed:          2026-11-19 19:54:49
+Source directory:   datasets/LEVIR-CD
+Output directory:   datasets/LEVIR-CD/processed_256
+Patch size:         256 x 256 px, non-overlapping, no padding
+Elapsed time:       121.4 seconds
+
+FILES COUNTED ON DISK AFTER GENERATION
+--------------------------------------------------------------------------------
+Split  | Source pairs | A      | B      | label  | CSV rows | Patches with change
+--------------------------------------------------------------------------------
+train  | 445          | 7120   | 7120   | 7120   | 7120     | 3167 (44.5%)
+val    | 64           | 1024   | 1024   | 1024   | 1024     | 436 (42.6%)
+test   | 128          | 2048   | 2048   | 2048   | 2048     | 935 (45.7%)
+--------------------------------------------------------------------------------
+TOTAL: 637 source pairs -> 10192 patch triplets -> 30576 patch image files on disk
+Patches containing change: 4538 (44.5%)
+Metadata: train_patches.csv, val_patches.csv, test_patches.csv, all_patches.csv (10192 rows)
+Patch image size on disk: 2264.9 MB
+
+VERIFICATION
+--------------------------------------------------------------------------------
+• Every patch was re-opened after saving and compared pixel-for-pixel with its
+  crop: 30576 of 30576 files matched.
+• The filenames on disk match the metadata CSVs exactly (none missing, none extra).
+• A, B and label patches were cut with identical crop boxes; splits kept separate.
+
+MASK VALUES IN THE GENERATED LABEL PATCHES
+--------------------------------------------------------------------------------
+  value   0:  636,876,269 px (95.3489%)
+  value 156:          187 px (0.0000%)
+  value 254:          522 px (0.0001%)
+  value 255:   31,065,934 px (4.6510%)
+• Mask values were copied unchanged. In the metadata, any value > 0 counts as change.
+================================================================================

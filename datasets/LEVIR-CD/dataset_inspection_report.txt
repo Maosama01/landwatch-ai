@@ -1,0 +1,56 @@
+================================================================================
+               LEVIR-CD DATASET INSPECTION & VALIDATION REPORT
+                         LandWatch AI - Project 50
+================================================================================
+Inspection Timestamp: 2026-11-19 20:04:19
+Root Directory:       datasets/LEVIR-CD
+Engine Mode:          PIL (Pillow)
+Scan Duration:        5.65 seconds
+
+--------------------------------------------------------------------------------
+1. SPLIT SUMMARY & PAIR COUNTS
+--------------------------------------------------------------------------------
+Split        | Before (A)   | After (B)    | Mask (label)   | Matched Triplets  
+--------------------------------------------------------------------------------
+train        | 445          | 445          | 445            | 445               
+val          | 64           | 64           | 64             | 64                
+test         | 128          | 128          | 128            | 128               
+--------------------------------------------------------------------------------
+TOTAL        |              |              |                | 637               
+
+--------------------------------------------------------------------------------
+2. IMAGE DIMENSIONS & FORMAT INTEGRITY
+--------------------------------------------------------------------------------
+Split [train]:
+  • Dimensions: 1024 x 1024 px | Count: 445 pairs
+  • Dimensions internally consistent (A == B): True
+Split [val]:
+  • Dimensions: 1024 x 1024 px | Count: 64 pairs
+  • Dimensions internally consistent (A == B): True
+Split [test]:
+  • Dimensions: 1024 x 1024 px | Count: 128 pairs
+  • Dimensions internally consistent (A == B): True
+Overall Pre/Post Dimension Alignment: PASSED (100% matched)
+Overall Mask/Image Alignment:         PASSED (100% matched)
+
+--------------------------------------------------------------------------------
+3. GROUND-TRUTH MASK PIXEL VALUE ANALYSIS
+--------------------------------------------------------------------------------
+Distinct pixel values detected in change masks: [0, 156, 254, 255]
+  • Evaluation Status: Non-binary pixel values detected: [0, 156, 254, 255]
+
+--------------------------------------------------------------------------------
+4. ANOMALY, CORRUPTION & MISSING DATA AUDIT
+--------------------------------------------------------------------------------
+Corrupted or Unreadable Files: 0
+  • Zero corrupted files detected. All images decoded successfully.
+Missing Pair Counterparts:     0
+  • Zero missing counterparts. Every A image has an exact matching B and label image.
+
+--------------------------------------------------------------------------------
+5. COMPATIBILITY & PIPELINE READINESS ASSESSMENT
+--------------------------------------------------------------------------------
+• Resolution: 1024 x 1024 is high resolution for direct full-image ResNet/U-Net inference.
+• Memory Assessment: In Java 17 CPU inference, tiling into 256x256 or 512x512 patches is recommended.
+• Dataset Structure: Standard LEVIR-CD format is verified and ready for dataset loaders.
+================================================================================
