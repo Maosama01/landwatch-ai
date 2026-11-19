@@ -1,0 +1,125 @@
+=== LandWatch AI - FC-Siam-diff training (2026-11-20T00:28:57.956304) ===
+DJL 0.40.0 / PyTorch 2.7.1, device mps(0)
+Dataset: datasets/LEVIR-CD/processed_256
+Patches: train 7120, val 1024 (test 2048 held out)
+Train change-pixel fraction 0.04589 -> BCE pos_weight 4.5597 (sqrt of neg/pos ratio)
+Normalisation (train only, A+B pooled): Normalization[mean=[0.39789164, 0.39243186, 0.335081], std=[0.19679993, 0.1878889, 0.17317191]]  [10.8 s]
+Model FC-Siam-diff(widths=[16, 32, 64, 128]), 1,348,785 trainable parameters; 890 steps/epoch, batch 8
+  epoch 1 step 100/890  mean loss 1.4802  lr 1.00e-03  35 s
+  epoch 1 step 200/890  mean loss 1.3492  lr 9.99e-04  68 s
+  epoch 1 step 300/890  mean loss 1.2519  lr 9.98e-04  101 s
+  epoch 1 step 400/890  mean loss 1.1722  lr 9.97e-04  134 s
+  epoch 1 step 500/890  mean loss 1.1100  lr 9.95e-04  166 s
+  epoch 1 step 600/890  mean loss 1.0623  lr 9.93e-04  198 s
+  epoch 1 step 700/890  mean loss 1.0281  lr 9.91e-04  231 s
+  epoch 1 step 800/890  mean loss 0.9969  lr 9.88e-04  264 s
+Epoch 1/13: train loss 0.9719 | val@0.50 P 0.7107 R 0.7504 F1 0.7300 IoU 0.5748 | val@0.55 F1 0.7300 IoU 0.5748 | 294 s train + 12 s val  [checkpoint saved]
+  epoch 2 step 100/890  mean loss 0.6937  lr 9.82e-04  37 s
+  epoch 2 step 200/890  mean loss 0.6780  lr 9.78e-04  74 s
+  epoch 2 step 300/890  mean loss 0.6858  lr 9.74e-04  110 s
+  epoch 2 step 400/890  mean loss 0.6853  lr 9.70e-04  148 s
+  epoch 2 step 500/890  mean loss 0.6739  lr 9.65e-04  187 s
+  epoch 2 step 600/890  mean loss 0.6661  lr 9.60e-04  228 s
+  epoch 2 step 700/890  mean loss 0.6589  lr 9.55e-04  271 s
+  epoch 2 step 800/890  mean loss 0.6480  lr 9.49e-04  311 s
+Epoch 2/13: train loss 0.6395 | val@0.50 P 0.8083 R 0.7627 F1 0.7849 IoU 0.6459 | val@0.40 F1 0.7859 IoU 0.6473 | 343 s train + 11 s val  [checkpoint saved]
+  epoch 3 step 100/890  mean loss 0.6060  lr 9.37e-04  40 s
+  epoch 3 step 200/890  mean loss 0.6296  lr 9.30e-04  86 s
+  epoch 3 step 300/890  mean loss 0.6258  lr 9.23e-04  126 s
+  epoch 3 step 400/890  mean loss 0.6048  lr 9.16e-04  164 s
+  epoch 3 step 500/890  mean loss 0.5900  lr 9.08e-04  203 s
+  epoch 3 step 600/890  mean loss 0.5820  lr 9.00e-04  250 s
+  epoch 3 step 700/890  mean loss 0.5757  lr 8.92e-04  287 s
+  epoch 3 step 800/890  mean loss 0.5630  lr 8.83e-04  328 s
+Epoch 3/13: train loss 0.5635 | val@0.50 P 0.8637 R 0.6703 F1 0.7548 IoU 0.6062 | val@0.20 F1 0.7747 IoU 0.6323 | 366 s train + 14 s val
+  epoch 4 step 100/890  mean loss 0.5142  lr 8.66e-04  47 s
+  epoch 4 step 200/890  mean loss 0.4926  lr 8.57e-04  89 s
+  epoch 4 step 300/890  mean loss 0.4894  lr 8.48e-04  128 s
+  epoch 4 step 400/890  mean loss 0.4813  lr 8.38e-04  166 s
+  epoch 4 step 500/890  mean loss 0.4928  lr 8.28e-04  210 s
+  epoch 4 step 600/890  mean loss 0.4859  lr 8.17e-04  248 s
+  epoch 4 step 700/890  mean loss 0.4780  lr 8.07e-04  286 s
+  epoch 4 step 800/890  mean loss 0.4739  lr 7.96e-04  324 s
+Epoch 4/13: train loss 0.4728 | val@0.50 P 0.7684 R 0.8583 F1 0.8109 IoU 0.6819 | val@0.65 F1 0.8153 IoU 0.6882 | 357 s train + 13 s val  [checkpoint saved]
+  epoch 5 step 100/890  mean loss 0.4263  lr 7.75e-04  37 s
+  epoch 5 step 200/890  mean loss 0.4508  lr 7.64e-04  74 s
+  epoch 5 step 300/890  mean loss 0.4676  lr 7.52e-04  111 s
+  epoch 5 step 400/890  mean loss 0.4498  lr 7.40e-04  148 s
+  epoch 5 step 500/890  mean loss 0.4459  lr 7.28e-04  186 s
+  epoch 5 step 600/890  mean loss 0.4434  lr 7.16e-04  223 s
+  epoch 5 step 700/890  mean loss 0.4385  lr 7.04e-04  264 s
+  epoch 5 step 800/890  mean loss 0.4368  lr 6.92e-04  304 s
+Epoch 5/13: train loss 0.4344 | val@0.50 P 0.6803 R 0.9240 F1 0.7836 IoU 0.6442 | val@0.90 F1 0.8256 IoU 0.7030 | 338 s train + 17 s val  [checkpoint saved]
+  epoch 6 step 100/890  mean loss 0.3799  lr 6.68e-04  46 s
+  epoch 6 step 200/890  mean loss 0.3871  lr 6.55e-04  84 s
+  epoch 6 step 300/890  mean loss 0.3898  lr 6.42e-04  124 s
+  epoch 6 step 400/890  mean loss 0.3885  lr 6.29e-04  167 s
+  epoch 6 step 500/890  mean loss 0.3901  lr 6.16e-04  205 s
+  epoch 6 step 600/890  mean loss 0.3967  lr 6.03e-04  242 s
+  epoch 6 step 700/890  mean loss 0.4061  lr 5.90e-04  279 s
+  epoch 6 step 800/890  mean loss 0.4019  lr 5.77e-04  317 s
+Epoch 6/13: train loss 0.4037 | val@0.50 P 0.8308 R 0.8311 F1 0.8310 IoU 0.7108 | val@0.55 F1 0.8310 IoU 0.7109 | 352 s train + 14 s val  [checkpoint saved]
+  epoch 7 step 100/890  mean loss 0.3505  lr 5.51e-04  38 s
+  epoch 7 step 200/890  mean loss 0.3573  lr 5.38e-04  76 s
+  epoch 7 step 300/890  mean loss 0.3839  lr 5.24e-04  114 s
+  epoch 7 step 400/890  mean loss 0.3761  lr 5.11e-04  162 s
+  epoch 7 step 500/890  mean loss 0.3749  lr 4.98e-04  200 s
+  epoch 7 step 600/890  mean loss 0.3713  lr 4.84e-04  245 s
+  epoch 7 step 700/890  mean loss 0.3731  lr 4.71e-04  298 s
+  epoch 7 step 800/890  mean loss 0.3699  lr 4.57e-04  338 s
+Epoch 7/13: train loss 0.3654 | val@0.50 P 0.8515 R 0.8431 F1 0.8473 IoU 0.7350 | val@0.45 F1 0.8475 IoU 0.7354 | 374 s train + 15 s val  [checkpoint saved]
+  epoch 8 step 100/890  mean loss 0.3361  lr 4.32e-04  42 s
+  epoch 8 step 200/890  mean loss 0.3513  lr 4.19e-04  78 s
+  epoch 8 step 300/890  mean loss 0.3431  lr 4.06e-04  115 s
+  epoch 8 step 400/890  mean loss 0.3401  lr 3.92e-04  151 s
+  epoch 8 step 500/890  mean loss 0.3392  lr 3.79e-04  188 s
+  epoch 8 step 600/890  mean loss 0.3406  lr 3.66e-04  225 s
+  epoch 8 step 700/890  mean loss 0.3436  lr 3.54e-04  261 s
+  epoch 8 step 800/890  mean loss 0.3508  lr 3.41e-04  297 s
+Epoch 8/13: train loss 0.3475 | val@0.50 P 0.8445 R 0.8500 F1 0.8473 IoU 0.7350 | val@0.55 F1 0.8475 IoU 0.7354 | 330 s train + 13 s val  [checkpoint saved]
+  epoch 9 step 100/890  mean loss 0.3470  lr 3.17e-04  38 s
+  epoch 9 step 200/890  mean loss 0.3560  lr 3.05e-04  74 s
+  epoch 9 step 300/890  mean loss 0.3455  lr 2.92e-04  110 s
+  epoch 9 step 400/890  mean loss 0.3480  lr 2.80e-04  146 s
+  epoch 9 step 500/890  mean loss 0.3398  lr 2.68e-04  182 s
+  epoch 9 step 600/890  mean loss 0.3385  lr 2.57e-04  219 s
+  epoch 9 step 700/890  mean loss 0.3394  lr 2.45e-04  256 s
+  epoch 9 step 800/890  mean loss 0.3409  lr 2.34e-04  294 s
+Epoch 9/13: train loss 0.3391 | val@0.50 P 0.8049 R 0.9048 F1 0.8519 IoU 0.7420 | val@0.80 F1 0.8626 IoU 0.7583 | 327 s train + 13 s val  [checkpoint saved]
+  epoch 10 step 100/890  mean loss 0.3224  lr 2.13e-04  36 s
+  epoch 10 step 200/890  mean loss 0.3175  lr 2.02e-04  72 s
+  epoch 10 step 300/890  mean loss 0.3075  lr 1.92e-04  108 s
+  epoch 10 step 400/890  mean loss 0.3146  lr 1.81e-04  144 s
+  epoch 10 step 500/890  mean loss 0.3162  lr 1.71e-04  180 s
+  epoch 10 step 600/890  mean loss 0.3159  lr 1.61e-04  216 s
+  epoch 10 step 700/890  mean loss 0.3100  lr 1.52e-04  253 s
+  epoch 10 step 800/890  mean loss 0.3090  lr 1.43e-04  290 s
+Epoch 10/13: train loss 0.3107 | val@0.50 P 0.8429 R 0.8853 F1 0.8636 IoU 0.7599 | val@0.65 F1 0.8656 IoU 0.7630 | 322 s train + 13 s val  [checkpoint saved]
+  epoch 11 step 100/890  mean loss 0.3211  lr 1.26e-04  36 s
+  epoch 11 step 200/890  mean loss 0.3143  lr 1.17e-04  72 s
+  epoch 11 step 300/890  mean loss 0.3053  lr 1.09e-04  109 s
+  epoch 11 step 400/890  mean loss 0.3042  lr 1.01e-04  146 s
+  epoch 11 step 500/890  mean loss 0.3014  lr 9.35e-05  182 s
+  epoch 11 step 600/890  mean loss 0.2989  lr 8.62e-05  218 s
+  epoch 11 step 700/890  mean loss 0.3008  lr 7.91e-05  255 s
+  epoch 11 step 800/890  mean loss 0.3033  lr 7.25e-05  291 s
+Epoch 11/13: train loss 0.3049 | val@0.50 P 0.8582 R 0.8707 F1 0.8644 IoU 0.7611 | val@0.60 F1 0.8647 IoU 0.7617 | 323 s train + 12 s val
+  epoch 12 step 100/890  mean loss 0.2986  lr 6.06e-05  36 s
+  epoch 12 step 200/890  mean loss 0.2864  lr 5.49e-05  76 s
+  epoch 12 step 300/890  mean loss 0.2861  lr 4.94e-05  113 s
+  epoch 12 step 400/890  mean loss 0.2903  lr 4.43e-05  149 s
+  epoch 12 step 500/890  mean loss 0.2924  lr 3.96e-05  186 s
+  epoch 12 step 600/890  mean loss 0.2936  lr 3.52e-05  222 s
+  epoch 12 step 700/890  mean loss 0.2959  lr 3.11e-05  257 s
+  epoch 12 step 800/890  mean loss 0.2956  lr 2.74e-05  293 s
+Epoch 12/13: train loss 0.2951 | val@0.50 P 0.8486 R 0.8852 F1 0.8665 IoU 0.7644 | val@0.65 F1 0.8679 IoU 0.7666 | 326 s train + 13 s val  [checkpoint saved]
+  epoch 13 step 100/890  mean loss 0.2985  lr 2.13e-05  36 s
+  epoch 13 step 200/890  mean loss 0.3139  lr 1.87e-05  76 s
+  epoch 13 step 300/890  mean loss 0.3111  lr 1.63e-05  112 s
+  epoch 13 step 400/890  mean loss 0.3050  lr 1.44e-05  146 s
+  epoch 13 step 500/890  mean loss 0.3059  lr 1.28e-05  178 s
+  epoch 13 step 600/890  mean loss 0.3024  lr 1.15e-05  211 s
+  epoch 13 step 700/890  mean loss 0.2990  lr 1.07e-05  246 s
+  epoch 13 step 800/890  mean loss 0.2951  lr 1.01e-05  279 s
+Epoch 13/13: train loss 0.2950 | val@0.50 P 0.8574 R 0.8782 F1 0.8677 IoU 0.7663 | val@0.60 F1 0.8684 IoU 0.7674 | 310 s train + 10 s val  [checkpoint saved]
+Done: 13 epochs in 75.6 min; best val F1 0.8684 at epoch 13 (threshold 0.600). Model in models/siamese_unet_levir_seed7

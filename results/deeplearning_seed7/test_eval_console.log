@@ -1,0 +1,46 @@
+Model under evaluation (as recorded before this run):
+FC-Siam-diff change detector (fully convolutional Siamese U-Net, Daudt, Le Saux & Boulch, ICIP 2018)
+  Encoder widths [16, 32, 64, 128], 1,348,785 trainable parameters + BatchNorm statistics
+  Trained with DJL 0.40.0 / PyTorch 2.7.1 on mps(0)
+  Training data: LEVIR-CD train split, 7120 patches of 256x256 (13 epochs, best epoch 13)
+  Checkpoint and decision threshold (0.6) chosen on the LEVIR-CD val split (1024 patches)
+  Val  : F1 0.8684, IoU 0.7674, precision 0.8716, recall 0.8652
+  Test : not evaluated yet (run EvaluateChangeDetector test)
+  Pixel-level metrics from com.landwatch.evaluation.BinaryChangeMetrics; full reports in results/deeplearning/
+  Model directory: models/siamese_unet_levir_seed7, inference device: mps(0)
+
+Evaluating test (2048 patches) on mps(0) with threshold 0.6
+  256/2048  running F1 0.8918
+  512/2048  running F1 0.8446
+  768/2048  running F1 0.8514
+  1024/2048  running F1 0.8562
+  1280/2048  running F1 0.8574
+  1536/2048  running F1 0.8533
+  1792/2048  running F1 0.8545
+  2048/2048  running F1 0.8585
+LandWatch AI - FC-Siam-diff change detection, evaluation on LEVIR-CD TEST split
+Generated: 2026-11-20T01:45:48.139991
+Model: models/siamese_unet_levir_seed7
+Patches: 2048 of 256x256 (datasets/LEVIR-CD/processed_256/metadata/test_patches.csv)
+Decision threshold: 0.6 (tuned on VAL during training)
+Inference device: mps(0), DJL 0.40.0 / PyTorch 2.7.1
+Metrics: global pixel confusion matrix over all patches (com.landwatch.evaluation.BinaryChangeMetrics)
+
+Confusion matrix (pixels): TP=5837239  FP=924831  FN=1000165  TN=126455493  (total 134217728)
+Change precision : 0.8632
+Change recall    : 0.8537
+Change F1        : 0.8585
+Change IoU       : 0.7520
+Macro F1         : 0.9254
+Mean IoU         : 0.8685
+Cohen's kappa    : 0.8509
+Pixel accuracy   : 0.9857  (misleading alone: classes are imbalanced)
+
+For reference only, at the untuned threshold 0.50: precision 0.8492, recall 0.8670, F1 0.8580, IoU 0.7513
+
+Inference latency per 256x256 patch on mps(0) (predictProbabilities + threshold, batch of 1, excluding 5 warm-up calls, n=2043): mean 13.4 ms, median 12.9 ms, p95 16.9 ms
+Inference latency per 256x256 patch on cpu() [separate run on the first 50 patches, for machines without MPS] (predictProbabilities + threshold, batch of 1, excluding 5 warm-up calls, n=45): mean 42.0 ms, median 41.6 ms, p95 46.0 ms
+Total evaluation wall time (incl. PNG decoding): 40.3 s
+
+Wrote results/deeplearning_seed7/test_metrics.txt
+Recorded metrics.test.* in models/siamese_unet_levir_seed7/model.properties

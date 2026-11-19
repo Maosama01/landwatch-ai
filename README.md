@@ -21,7 +21,7 @@ LEVIR-CD, pixel-level metrics for the *change* class from one global confusion m
 | FC-Siam-diff (DJL, 13 epochs, threshold 0.65 tuned on val) | val (1,024 patches) | 0.8738 | 0.7760 | 0.8790 | 0.8688 | 0.8683 | `results/deeplearning/val_metrics.txt` |
 | FC-Siam-diff (same model, evaluated once) | **test** (2,048 patches) | **0.8693** | **0.7688** | 0.8716 | 0.8670 | 0.8623 | `results/deeplearning/test_metrics.txt` |
 
-On the held-out test split the trained Siamese network raises change F1 from 0.1008 to 0.8693 and IoU from 0.0531 to 0.7688. Its val and test scores differ by only 0.0045 F1, so tuning the checkpoint and threshold on val did not overfit. An earlier 7-epoch run (test F1 0.8548) is kept for comparison in `results/deeplearning_run1_7ep/`; the final model was chosen between the two on validation F1 only.
+On the held-out test split the trained Siamese network raises change F1 from 0.1008 to 0.8693 and IoU from 0.0531 to 0.7688. Its val and test scores differ by only 0.0045 F1, so tuning the checkpoint and threshold on val did not overfit. An earlier 7-epoch run (test F1 0.8548) is kept for comparison in `results/deeplearning_run1_7ep/`; the final model was chosen between the two on validation F1 only. Across three full training runs with different seeds, test F1 is 0.8650 ± 0.0058; the shipped run happens to be the best of the three.
 
 Neural-network fundamentals (plain Java, no libraries):
 
@@ -104,11 +104,13 @@ Every dashboard engine returns only a binary mask; all views, statistics and exp
 ├── models/
 │   ├── siamese_unet_levir/         trained FC-Siam-diff weights (5.4 MB) + model.properties (run 2, the default)
 │   ├── siamese_unet_levir_run1_7ep/ first 7-epoch run, kept for comparison
+│   ├── siamese_unet_levir_seed7/, _seed123/   weights of the two repeat runs
 │   └── eurosat_resnet/             trained EuroSAT ResNet weights (11.2 MB) + model.properties
 ├── results/
 │   ├── benchmarks/                 baseline val/test metrics, per-image CSVs, val-only minRegion sweep
 │   ├── deeplearning/               run 2: training log, val threshold sweep, val/test metrics, device benchmark, test_7 example
 │   ├── deeplearning_run1_7ep/      run 1 (7 epochs, superseded): the same files, kept for comparison
+│   ├── deeplearning_seed7/, deeplearning_seed123/   repeat runs that measure the spread over seeds
 │   ├── eurosat/                    training log, val/test metrics, confusion matrices, per-image predictions
 │   ├── fundamentals/               XOR, gradient-check and learning-rules output
 │   └── ui_snapshots/               dashboard screenshots
@@ -295,8 +297,10 @@ Sources: `results/deeplearning/{training_log.csv, val_threshold_sweep.csv, val_m
 |---|---|---|---|---|---|
 | 1 | 7 of 13 (75-minute time budget ran out) | 67.0 min | 0.8554 (0.80) | 0.8548 | superseded; files in `results/deeplearning_run1_7ep/` |
 | 2 | 13 of 13 | 83.4 min | **0.8738** (0.65) | **0.8693** | **selected** |
+| 3 (seed 7) | 13 of 13 | 75.6 min | 0.8684 (0.60) | 0.8585 | repeat, measures spread only; `results/deeplearning_seed7/` |
+| 4 (seed 123) | 13 of 13 | 73.8 min | 0.8723 (0.70) | 0.8672 | repeat, measures spread only; `results/deeplearning_seed123/` |
 
-Run 1's validation F1 was still rising when its time budget ran out, so run 2 was given a 150-minute budget to finish the schedule. The rule was fixed before run 2 started: keep the run with the higher **validation** F1 and evaluate the new model on test exactly once. Each model was evaluated on test once (twice in total), and neither test score was used to choose between them. At epoch 7 the two runs agree within 0.001 val F1 (0.8554 vs. 0.8564), a direct measure of run-to-run variation.
+Run 1's validation F1 was still rising when its time budget ran out, so run 2 was given a 150-minute budget to finish the schedule. The rule was fixed before run 2 started: keep the run with the higher **validation** F1 and evaluate the new model on test exactly once. Runs 3 and 4 repeat run 2 with seeds 7 and 123 (run 2 used 42); it was fixed before they started that they only measure the spread and that the shipped model stays run 2. Each model was evaluated on test once (four times in total), and no test score was used to choose a model. Over runs 2–4: val F1 **0.8715 ± 0.0028**, test F1 **0.8650 ± 0.0058**, test IoU **0.7621 ± 0.0089** (mean ± sample SD, n = 3). The shipped run is the best of the three, so a retrain should be expected nearer the mean.
 
 Run 2's learning curve:
 
@@ -405,7 +409,7 @@ More views: [overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png), [g
 - **FC-Siam-diff is order-symmetric.** Its decoder only sees |enc(A) − enc(B)|, so swapping the two dates gives the same output (checked in inference mode by `FcSiamDiffTest`): it cannot tell construction from demolition.
 - **No ground-sample-distance calibration** exists for arbitrary inputs. The dashboard reports areas in pixels only, and its "change level" is a heuristic based on the share of changed pixels, not a verified assessment.
 - **The bundled demo pair is synthetic**, not real satellite imagery.
-- **Training is not bit-reproducible.** Augmentation draws from an unseeded `ThreadLocalRandom`, and GPU (MPS) kernels are not guaranteed deterministic. The change model was trained twice with identical settings (they agree within 0.001 val F1 at epoch 7), which is not a variance estimate over seeds.
+- **Training is not bit-reproducible.** Augmentation draws from an unseeded `ThreadLocalRandom`, and GPU (MPS) kernels are not guaranteed deterministic. Three full runs with different seeds give test F1 0.8650 ± 0.0058; three runs are only a rough estimate of the spread.
 - **Deviations from the FC-Siam-diff paper:** nearest-neighbour upsampling + 3×3 convolution instead of transposed convolution (DJL 0.40's PyTorch engine lacks the deconvolution operator), no dropout, an |A − B| bottleneck, and BatchNorm statistics shared across both dates.
 - **XOR training only shows that backpropagation works.** It is not evidence about training satellite models. The recorded XOR losses also differ slightly from those first reported on the original Windows laptop (see `results/fundamentals/xor_and_gradient_check_output.txt`).
 - Latencies come from one 8 GB laptop (the baseline's under load) and are indicative only.

@@ -32,7 +32,7 @@ November 2026
 
 ## 1. Abstract
 
-Change detection compares two co-registered images of the same area taken at different times and marks the pixels where something changed. LANDWATCH AI is a change-detection system written in Java 17. We validated the LEVIR-CD building-change benchmark (637 image pairs of 1024×1024 px at 0.5 m/pixel) and tiled it into 10,192 verified 256×256 patch triplets. In doing so we found that 32 of the 637 official masks contain stray non-binary values. On top of this data we implemented three things. The first is a classical baseline: luminance differencing, Otsu thresholding and morphological post-processing. The second is the fundamentals of neural networks, written from scratch: neurons, a multilayer perceptron, backpropagation, four optimisers, gradient checking and six classic learning rules. The third is the FC-Siam-diff fully convolutional Siamese network, trained in Java through the Deep Java Library (DJL) with the PyTorch engine. Its loss is designed for the 4.65 % share of change pixels, and its decision threshold is tuned on validation data only. A JavaFX dashboard runs a detection engine on a user-supplied image pair and shows three views of the result. On the held-out LEVIR-CD test split, the classical baseline reaches a change-class F1 of 0.1008 and an IoU of 0.0531 while flagging almost four times as many pixels as truly changed. FC-Siam-diff, trained for its full 13-epoch schedule (83 minutes on an Apple M3 GPU) and evaluated once on the same test pixels, reaches a change-class F1 of 0.8693 and an IoU of 0.7688, with precision 0.8716 and recall 0.8670. Its validation F1 of 0.8738 is within 0.0045 of the test score. An earlier run that stopped after 7 epochs (test F1 0.8548) is reported alongside it; the final model was chosen between the two runs on validation F1 alone. The trained model is also integrated into the dashboard, where both engines can be compared on real LEVIR-CD pairs against ground truth. All results are produced by code in the repository.
+Change detection compares two co-registered images of the same area taken at different times and marks the pixels where something changed. LANDWATCH AI is a change-detection system written in Java 17. We validated the LEVIR-CD building-change benchmark (637 image pairs of 1024×1024 px at 0.5 m/pixel) and tiled it into 10,192 verified 256×256 patch triplets. In doing so we found that 32 of the 637 official masks contain stray non-binary values. On top of this data we implemented three things. The first is a classical baseline: luminance differencing, Otsu thresholding and morphological post-processing. The second is the fundamentals of neural networks, written from scratch: neurons, a multilayer perceptron, backpropagation, four optimisers, gradient checking and six classic learning rules. The third is the FC-Siam-diff fully convolutional Siamese network, trained in Java through the Deep Java Library (DJL) with the PyTorch engine. Its loss is designed for the 4.65 % share of change pixels, and its decision threshold is tuned on validation data only. A JavaFX dashboard runs a detection engine on a user-supplied image pair and shows three views of the result. On the held-out LEVIR-CD test split, the classical baseline reaches a change-class F1 of 0.1008 and an IoU of 0.0531 while flagging almost four times as many pixels as truly changed. FC-Siam-diff, trained for its full 13-epoch schedule (83 minutes on an Apple M3 GPU) and evaluated once on the same test pixels, reaches a change-class F1 of 0.8693 and an IoU of 0.7688, with precision 0.8716 and recall 0.8670. Its validation F1 of 0.8738 is within 0.0045 of the test score. An earlier run that stopped after 7 epochs (test F1 0.8548) is reported alongside it; the final model was chosen between the two runs on validation F1 alone. Two repeat runs with other seeds put test F1 at 0.8650 ± 0.0058 over the three full-schedule runs. The trained model is also integrated into the dashboard, where both engines can be compared on real LEVIR-CD pairs against ground truth. All results are produced by code in the repository.
 
 ---
 
@@ -584,7 +584,7 @@ Sources for the selected model: `results/deeplearning/` (`training_log.csv`, `va
 | 1 | 7 of 13 | time budget: the next epoch (~23.5 min) would have exceeded 75 min | 67.0 min | 0.8554 (7, 0.80) | 0.8548 | 0.7465 | superseded, kept for comparison |
 | 2 | 13 of 13 | planned epochs completed | 83.4 min | **0.8738** (13, 0.65) | **0.8693** | **0.7688** | **selected (higher val F1)** |
 
-**Test-split accounting.** Each model was evaluated on test exactly once, so the test split has been scored twice in total. Neither score influenced a choice: run 1's checkpoint and threshold were fixed on val, the decision to retrain rested on run 1's validation curve, and run 2 was selected by validation F1 under the rule fixed in advance. `EvaluateChangeDetector` refuses to overwrite an existing test report, so neither model can be re-scored on test by accident.
+**Test-split accounting.** Each model was evaluated on test exactly once: run 1, run 2 and the two repeat runs below, four evaluations in total. None of these scores influenced a choice: run 1's checkpoint and threshold were fixed on val, the decision to retrain rested on run 1's validation curve, run 2 was selected by validation F1 under the rule fixed in advance, and the repeats were declared measurement-only before they started. `EvaluateChangeDetector` refuses to overwrite an existing test report, so no model can be re-scored on test by accident.
 
 Run 1 was slowed by other jobs sharing the 8 GB machine (its epoch 7 took 1,364.6 s against 347.9 s for epoch 1). Run 2 ran on an otherwise idle machine at 311–422 s per epoch.
 
@@ -626,6 +626,17 @@ Observations:
 3. **Value of threshold tuning.** At the untuned $t = 0.5$, test F1 would be 0.8676 (precision 0.8510, recall 0.8850). Tuning on val gains 0.0017 F1 here, against about 0.007 for run 1: the fully trained model is less sensitive to the threshold.
 4. **Same pixels as the baseline.** The patch-level test set contains exactly the 6,837,404 true change pixels that the baseline benchmark counted on the full-resolution test images, so Section 8.4 compares the methods on identical ground truth.
 
+**Repeat runs: how much a retrain moves the score.** Two more runs used the same code, data and settings as run 2, with engine seeds 7 and 123 (run 2 used 42) and a 240-minute budget; both completed all 13 epochs (75.6 and 73.8 min). The rule was fixed before they started: they only measure the spread, the shipped model stays run 2 whatever they score, and each is evaluated on test exactly once. Files: `results/deeplearning_seed{7,123}/` and `models/siamese_unet_levir_seed{7,123}/`.
+
+| Run | Seed | Best epoch | $t$ | Val F1 | Test F1 | Test IoU | Test κ |
+|---|---|---|---|---|---|---|---|
+| Run 2 (shipped) | 42 | 13 | 0.65 | 0.8738 | 0.8693 | 0.7688 | 0.8623 |
+| Repeat | 7 | 13 | 0.60 | 0.8684 | 0.8585 | 0.7520 | 0.8509 |
+| Repeat | 123 | 12 | 0.70 | 0.8723 | 0.8672 | 0.7656 | 0.8602 |
+| **Mean ± SD** | | | | **0.8715 ± 0.0028** | **0.8650 ± 0.0058** | **0.7621 ± 0.0089** | **0.8578 ± 0.0061** |
+
+SD is the sample standard deviation over n = 3 runs (F1 and IoU computed from each run's pixel counts), so it is itself only a rough estimate. Across seeds, test F1 spans 0.0108 (0.8585 to 0.8693). The shipped model happens to be the best of the three on both validation and test. It was not picked from them, since it was fixed before they ran, but a retrain with these settings should be expected to land nearer the mean, 0.865, than at 0.869. Each repeat's test confusion matrix again contains exactly 6,837,404 true change pixels.
+
 **Full-image inference.** `PredictChangeMap` ran on the full 1024×1024 pair `test_7` through the tiling path of `DeepChangeDetector`: 16 tiles in 511 ms on MPS. On this single image F1 is 0.9043 and IoU 0.8254 (`results/deeplearning/examples/test_7_f1.txt`; run 1: 0.8938 and 0.8080). The dashboard, running the same model on the CPU, produces the identical mask (123,604 changed pixels). This is an illustration only: its 16 patches are already part of the test score. The probability map shows faint seams where buildings cross tile borders, an expected effect of non-overlapping tiles. Overlapping tiles with blending would remove them (Section 12).
 
 **Speed** (`device_benchmark.txt`, `test_metrics.txt`). One training step at batch 8 took 351.3 ms on MPS against 2,456.0 ms on CPU, so MPS is about 7× faster (measured while other jobs loaded the machine, so indicative only). With CPU-trained weights, logits on CPU and MPS differ by at most $1.53 \times 10^{-4}$. During run 2's test evaluation, on an otherwise idle machine, inference per 256×256 patch (batch 1) had a median of 13.2 ms on MPS (mean 13.9 ms, p95 17.1 ms, n = 2,043) and 41.7 ms on CPU (mean 42.0 ms, p95 45.9 ms, n = 45). Run 1's figures (55.4 ms on MPS, 53.3 ms on CPU) were measured under load and are superseded.
@@ -655,7 +666,7 @@ Both methods are scored on the same LEVIR-CD **test** pixels: 134,217,728 pixels
 - **The cause is the input feature.** The baseline's only feature is the luminance difference $|Y_{post} - Y_{pre}|$. It cannot tell a new building from a change in sun angle, a seasonal vegetation change or a small misregistration. FC-Siam-diff learns multi-scale features with a shared encoder and compares them, $|f(A) - f(B)|$, at every scale. This is exactly what the baseline's post-processing sweep (Section 8.2) could not provide.
 - **Pixel accuracy misleads, as predicted.** The baseline's 0.7747 pixel accuracy is *below* the 0.9491 that the trivial "always no change" rule would score (computed from the test confusion matrix). F1 and IoU rank the two methods correctly; pixel accuracy alone would understate the difference.
 
-No confidence intervals are reported (Section 11.6). The F1 gap of 0.769 is, however, far larger than the run-to-run variation measured in Section 8.3 (about 0.001 F1 at equal training length).
+Across three training runs with different seeds, test F1 is 0.8650 ± 0.0058 (Section 8.3). The gap to the baseline, about 0.76, is more than a hundred times that standard deviation, so the comparison does not depend on which run is shipped.
 
 ### 8.5 Neural-network fundamentals
 
@@ -928,7 +939,7 @@ Tests that need the real LEVIR-CD patches (`DataPipelineTest.realSplitsHaveTheDo
 - **Every result file records how it was made**: timestamp, Java version, OS and architecture, heap size, protocol and the exact command (for example, the `Reproduce` line in `results/benchmarks/baseline_test_metrics.txt`).
 - **Fixed seeds** (42) are used in the fundamentals, so the XOR, gradient-check and learning-rules outputs are identical from run to run on the same machine.
 - **The trained model is self-describing.** `model.properties` stores the architecture, widths, patch size, normalisation constants, decision threshold, all hyper-parameters, device, DJL / engine / Java versions, data sizes, the best epoch and the val (and later test) metrics.
-- **Deep-model training is not bit-reproducible** (Section 11.4). Its results are therefore reported from recorded runs together with their logs, not as exactly repeatable numbers. Two runs with identical settings agreed within 0.001 val F1 at equal training length (Section 8.3).
+- **Deep-model training is not bit-reproducible** (Section 11.4). Its results are therefore reported from recorded runs together with their logs, not as exactly repeatable numbers. Three full-schedule runs with different seeds give test F1 0.8650 ± 0.0058 (Section 8.3).
 - **Appendix A** lists the command that produces every result file.
 
 ### 10.4 Environment
@@ -972,15 +983,15 @@ A user-supplied image carries no reliable resolution information in this applica
 
 ### 11.4 Training is not bit-reproducible
 
-The engine seed is fixed (42), but the D4 augmentation draws transforms from Java's unseeded `ThreadLocalRandom`, and data are loaded by several worker threads. In addition, GPU (MPS) kernels are not guaranteed to be deterministic. Two training runs with identical settings can therefore give slightly different weights and metrics. The two FC-Siam-diff runs (Section 8.3) show this directly: after epoch 1 their val F1 differed by 0.047 (0.7477 against 0.7011), and by epoch 7 by only 0.001 (0.8554 against 0.8564).
+The engine seed is fixed (42), but the D4 augmentation draws transforms from Java's unseeded `ThreadLocalRandom`, and data are loaded by several worker threads. In addition, GPU (MPS) kernels are not guaranteed to be deterministic. Two training runs with identical settings can therefore give slightly different weights and metrics. The two FC-Siam-diff runs (Section 8.3) show this directly: after epoch 1 their val F1 differed by 0.047 (0.7477 against 0.7011), and by epoch 7 by only 0.001 (0.8554 against 0.8564). Across three full runs with different engine seeds the spread is larger: validation F1 0.8715 ± 0.0028 and test F1 0.8650 ± 0.0058.
 
 ### 11.5 Deviations from the FC-Siam-diff paper
 
 As detailed in Section 6.4.2: nearest-neighbour upsampling + convolution instead of transposed convolution (DJL 0.40's PyTorch engine lacks deconvolution), no dropout, an $\lvert A - B \rvert$ bottleneck, and batch-norm statistics shared across both dates. Our numbers therefore describe *this* variant and are not a reproduction of the paper's results.
 
-### 11.6 Few training runs, no variance over seeds
+### 11.6 Three training runs: a rough estimate of the spread
 
-The change model was trained twice with the same seed and settings (Section 8.3), and the EuroSAT classifier once. One pair of runs shows that run-to-run variation at equal training length was about 0.001 val F1 here, but two runs are not a statistical sample: there is no estimate of the variance over different seeds. Small differences, for example between two checkpoints or against published numbers, should therefore not be over-interpreted.
+The change model was trained in three full-schedule runs that differ only in the engine seed (42, 7 and 123; Section 8.3), plus the shortened first run; the EuroSAT classifier was trained once. The three runs give test F1 0.8650 ± 0.0058, but three runs give only a rough estimate of the spread, and the standard deviation is itself uncertain. Differences smaller than about 0.01 F1, for example between two checkpoints or against published numbers, should therefore not be over-interpreted.
 
 ### 11.7 Fundamentals: what XOR does and does not show
 
@@ -1010,7 +1021,7 @@ The following roadmap items are **not done** in this project. They are listed as
 | LSTM / Transformer temporal models | use longer image time series instead of two dates | not done |
 | VAE / GAN | generative models, e.g. for augmentation or unsupervised change detection | not done |
 | Ablation studies | FC-EF vs. FC-Siam-diff; augmentation on/off; loss variants (BCE only, Dice only, other $w_+$) | not done |
-| Multiple seeds | mean and standard deviation of the metrics over several training runs | not done |
+| More seeds | a tighter estimate of the spread than the three runs of Section 8.3 | not done |
 | GSD-aware area estimation | read georeferencing metadata and report areas in m² where the resolution is known | not done |
 
 Two smaller engineering items follow from this report. A third one, training for the full schedule, has been done (Section 8.3).
@@ -1027,11 +1038,11 @@ LANDWATCH AI builds a complete, honest change-detection workflow in Java.
 - **Data.** The pipeline validated LEVIR-CD and tiled it into 10,192 patch triplets, with every one of the 30,576 files verified pixel for pixel. It also surfaced 32 masks with stray non-binary values, which are now handled by one explicit rule.
 - **Fundamentals.** They are implemented from first principles and verified: gradients match central differences to a relative error of 9.00e-10, an MLP learns XOR, and six classic learning rules each show their textbook behaviour on purpose-built data.
 - **Baseline.** With an untouched default and the test split used once, it shows how far simple differencing gets on real data: a change F1 of 0.1008 and an IoU of 0.0531 on test, with almost four times as many predicted as true change pixels. A val-only sweep shows that post-processing cannot fix this.
-- **Deep model.** FC-Siam-diff addresses exactly this weakness by learning features from data, under strict separation of training, validation and test data. On the same test pixels it reaches a change F1 of 0.8693 and an IoU of 0.7688, against 0.1008 and 0.0531 for the baseline. It flags almost exactly the true amount of change, and its validation and test scores agree to within 0.0045 F1. Completing the full 13-epoch schedule raised test F1 from 0.8548 (first run, 7 epochs) to 0.8693; the model was chosen between the two runs on validation F1 alone (Sections 8.3 and 8.4).
+- **Deep model.** FC-Siam-diff addresses exactly this weakness by learning features from data, under strict separation of training, validation and test data. On the same test pixels it reaches a change F1 of 0.8693 and an IoU of 0.7688, against 0.1008 and 0.0531 for the baseline. It flags almost exactly the true amount of change, and its validation and test scores agree to within 0.0045 F1. Completing the full 13-epoch schedule raised test F1 from 0.8548 (first run, 7 epochs) to 0.8693; the model was chosen between the two runs on validation F1 alone. Two repeat runs with other seeds give 0.8650 ± 0.0058 over the three full runs, so the shipped model sits at the top of that spread (Sections 8.3 and 8.4).
 - **Land-use classification.** A ResNet-18-style classifier trained on EuroSAT reaches 0.9798 test accuracy and 0.9792 macro F1 across 10 classes. Its remaining errors are mostly between similar vegetation classes (Section 8.6).
 - **Dashboard.** It makes the pipeline usable and runs both change-detection engines on real LEVIR-CD pairs against ground truth. It states plainly what its numbers do and do not mean.
 
-The main limits are the scope of the labels (building change only), the lack of resolution calibration for arbitrary inputs, and the small number of training runs (two for the change model, one for the classifier). Section 12 lists how they could be addressed.
+The main limits are the scope of the labels (building change only), the lack of resolution calibration for arbitrary inputs, and the small number of training runs (three full runs for the change model, one for the classifier). Section 12 lists how they could be addressed.
 
 ---
 
