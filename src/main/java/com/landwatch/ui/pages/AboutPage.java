@@ -64,14 +64,14 @@ public final class AboutPage {
         Ui.kv(runtimeGrid, "OS", System.getProperty("os.name") + " " + System.getProperty("os.version")
                 + ", " + System.getProperty("os.arch") + ", " + rt.availableProcessors() + " CPU cores visible");
         Ui.kv(runtimeGrid, "JVM heap", String.format(Locale.ROOT, "max %d MB", rt.maxMemory() / (1024 * 1024)));
-        Ui.kv(runtimeGrid, "Working dir", Path.of("").toAbsolutePath().toString());
+        Ui.kv(runtimeGrid, "Working dir", AppPaths.forDisplay(Path.of("")));
 
         modelGrid.getChildren().clear();
         Path dir = deepEngine.getModelDir();
         String source = dir.equals(Path.of(SiameseUNetEngine.DEFAULT_MODEL_DIR))
                 ? "default" : "set by -D" + SiameseUNetEngine.MODEL_DIR_PROPERTY;
         Ui.kv(modelGrid, "Model dir", dir + "  (" + source + ")");
-        Ui.kv(modelGrid, "Absolute", dir.toAbsolutePath().normalize() + (Files.isDirectory(dir) ? "  [found]" : "  [NOT FOUND]"));
+        Ui.kv(modelGrid, "Absolute", AppPaths.forDisplay(dir) + (Files.isDirectory(dir) ? "  [found]" : "  [NOT FOUND]"));
         Ui.kv(modelGrid, "Status", stateText(), deepEngine.isAvailable() ? "kv-ok" : "kv-warn");
         Ui.kv(modelGrid, "Device", "requested " + System.getProperty(DeepChangeDetector.DEVICE_PROPERTY, "auto")
                 + " (-D" + DeepChangeDetector.DEVICE_PROPERTY + "), in use: "
@@ -84,7 +84,7 @@ public final class AboutPage {
 
         dataGrid.getChildren().clear();
         Path levir = AppPaths.levirDatasetDir();
-        Ui.kv(dataGrid, "LEVIR-CD", levir.toAbsolutePath().normalize() + (Files.isDirectory(levir) ? "  [found]" : "  [NOT FOUND]"),
+        Ui.kv(dataGrid, "LEVIR-CD", AppPaths.forDisplay(levir) + (Files.isDirectory(levir) ? "  [found]" : "  [NOT FOUND]"),
                 Files.isDirectory(levir) ? "kv-ok" : "kv-warn");
         for (String split : List.of("train", "val", "test")) {
             Path a = levir.resolve(split).resolve("A");

@@ -219,7 +219,7 @@ public final class TrainChangeDetector {
         config.set("training.time_seconds", String.format(Locale.ROOT, "%.0f", totalSeconds));
         config.save(outDir);
         System.out.printf(Locale.ROOT, "Done: %d epochs in %.1f min; best val F1 %.4f at epoch %d (threshold %s). Model in %s%n",
-                epochsCompleted, totalSeconds / 60, bestF1, bestEpoch, config.get(ModelConfig.THRESHOLD, "?"), outDir.toAbsolutePath());
+                epochsCompleted, totalSeconds / 60, bestF1, bestEpoch, config.get(ModelConfig.THRESHOLD, "?"), TrainingSupport.displayPath(outDir));
     }
 
     /**

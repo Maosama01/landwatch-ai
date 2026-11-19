@@ -1,5 +1,7 @@
 package com.landwatch.deeplearning.eurosat;
 
+import com.landwatch.deeplearning.TrainingSupport;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -108,8 +110,8 @@ public final class EuroSatSplit {
         String summary = summary(split, imageDir, seed);
         Files.writeString(out.resolve("dataset_summary.txt"), summary, StandardCharsets.UTF_8);
         System.out.print(summary);
-        System.out.println("Wrote " + splitDir.toAbsolutePath() + "/{train,val,test}.csv and "
-                + out.resolve("dataset_summary.txt").toAbsolutePath());
+        System.out.println("Wrote " + TrainingSupport.displayPath(splitDir) + "/{train,val,test}.csv and "
+                + TrainingSupport.displayPath(out.resolve("dataset_summary.txt")));
     }
 
     /**

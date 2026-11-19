@@ -2,6 +2,7 @@ package com.landwatch.deeplearning.eurosat;
 
 import com.landwatch.deeplearning.DjlRuntime;
 import com.landwatch.deeplearning.ImageTensors;
+import com.landwatch.deeplearning.TrainingSupport;
 import com.landwatch.evaluation.MulticlassMetrics;
 
 import java.awt.image.BufferedImage;
@@ -162,7 +163,7 @@ public final class EvaluateEuroSatClassifier {
             }
         }
         System.out.println(sb);
-        System.out.println("Wrote " + report.toAbsolutePath());
+        System.out.println("Wrote " + TrainingSupport.displayPath(report));
 
         config.setMetric("metrics." + split + ".accuracy", metrics.accuracy());
         config.setMetric("metrics." + split + ".macro_f1", metrics.macroF1());
@@ -174,7 +175,7 @@ public final class EvaluateEuroSatClassifier {
             config.setMetric("metrics." + split + ".f1." + names.get(c), metrics.f1(c));
         }
         config.set("metrics." + split + ".device", device);
-        config.set("metrics." + split + ".source", "results/eurosat/" + split + "_metrics.txt");
+        config.set("metrics." + split + ".source", TrainingSupport.displayPath(report));
         config.save(modelDir);
         System.out.println("Updated " + modelDir.resolve(EuroSatModelConfig.FILE_NAME));
     }

@@ -19,6 +19,8 @@ import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
 import ai.djl.util.Pair;
 
+import java.nio.file.Path;
+
 /**
  * Shared plumbing for building, training and running the change-detection model with DJL.
  *
@@ -32,6 +34,19 @@ public final class TrainingSupport {
     public static final String MODEL_NAME = "fc_siam_diff";
 
     private TrainingSupport() {
+    }
+
+    /**
+     * A path as it should appear in console output and in the result files: relative to the working
+     * directory when it lies inside it (so committed reports never contain a personal home-directory
+     * path), otherwise absolute. Always uses forward slashes.
+     */
+    public static String displayPath(Path path) {
+        Path abs = path.toAbsolutePath().normalize();
+        Path cwd = Path.of("").toAbsolutePath().normalize();
+        Path shown = abs.startsWith(cwd) ? cwd.relativize(abs) : abs;
+        String s = shown.toString().replace('\\', '/');
+        return s.isEmpty() ? "." : s;
     }
 
     /** Creates an (uninitialised) DJL model wrapping an {@link FcSiamDiff} block. */

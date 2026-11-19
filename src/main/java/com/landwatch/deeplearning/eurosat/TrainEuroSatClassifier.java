@@ -78,7 +78,7 @@ public final class TrainEuroSatClassifier {
         Engine.getInstance().setRandomSeed(seed);
         System.out.println("=== LandWatch AI - EuroSAT ResNet classifier training (" + LocalDateTime.now() + ") ===");
         System.out.println(DjlRuntime.describe() + ", device " + device + ", Java " + System.getProperty("java.version"));
-        System.out.println("Images: " + data.toAbsolutePath() + "\nSplits: " + splitDir.toAbsolutePath());
+        System.out.println("Images: " + TrainingSupport.displayPath(data) + "\nSplits: " + TrainingSupport.displayPath(splitDir));
 
         EuroSatSplit.Split split = EuroSatSplit.read(splitDir);
         List<String> classNames = split.classNames();
@@ -229,7 +229,7 @@ public final class TrainEuroSatClassifier {
         System.out.printf(Locale.ROOT, "Done: %d epochs, training loop %.1f min (total incl. data loading %.1f min); "
                         + "selected epoch %d with val accuracy %.4f, val macro F1 %.4f. Model in %s%n",
                 epochsCompleted, trainingSeconds / 60, totalSeconds / 60, bestEpoch, bestAcc, bestF1,
-                outDir.toAbsolutePath());
+                TrainingSupport.displayPath(outDir));
     }
 
     /** Runs the model (inference mode) over a split; returns the confusion matrix and the mean loss. */

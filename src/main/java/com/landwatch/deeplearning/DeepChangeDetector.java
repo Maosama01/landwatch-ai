@@ -223,7 +223,7 @@ public final class DeepChangeDetector implements AutoCloseable {
             sb.append("  Test : not evaluated yet (run EvaluateChangeDetector test)\n");
         }
         sb.append("  Pixel-level metrics from com.landwatch.evaluation.BinaryChangeMetrics; full reports in results/deeplearning/\n");
-        sb.append("  Model directory: ").append(modelDir.toAbsolutePath()).append(", inference device: ").append(getDevice());
+        sb.append("  Model directory: ").append(TrainingSupport.displayPath(modelDir)).append(", inference device: ").append(getDevice());
         return sb.toString();
     }
 

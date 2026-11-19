@@ -52,6 +52,28 @@ public final class AppPaths {
         return resultsDir().resolve("eurosat").resolve("test_metrics.txt");
     }
 
+    /**
+     * Absolute, normalised form of {@code path} for display, with the user's home directory shown as
+     * {@code ~} (as shells do). Keeps the account name off the screen in live demos and screenshots.
+     */
+    public static String forDisplay(Path path) {
+        return abbreviateHome(path.toAbsolutePath().normalize(), System.getProperty("user.home"));
+    }
+
+    static String abbreviateHome(Path absolute, String home) {
+        if (home == null || home.isBlank()) {
+            return absolute.toString();
+        }
+        Path homePath = Path.of(home).toAbsolutePath().normalize();
+        if (absolute.equals(homePath)) {
+            return "~";
+        }
+        if (absolute.startsWith(homePath)) {
+            return "~/" + homePath.relativize(absolute).toString().replace('\\', '/');
+        }
+        return absolute.toString();
+    }
+
     private static Path fromProperty(String property, String fallback) {
         String v = System.getProperty(property);
         return Path.of(v == null || v.isBlank() ? fallback : v.trim());

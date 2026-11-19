@@ -7,6 +7,7 @@ import ai.djl.training.ParameterStore;
 import com.landwatch.deeplearning.DjlRuntime;
 import com.landwatch.deeplearning.ImageTensors;
 import com.landwatch.deeplearning.Normalization;
+import com.landwatch.deeplearning.TrainingSupport;
 
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -271,7 +272,7 @@ public final class EuroSatClassifier implements AutoCloseable {
         appendMetrics(sb, "val", "Val ");
         appendMetrics(sb, "test", "Test");
         sb.append("  Scope: classifies a whole 64x64 tile into one land-use class; not a change detector.\n");
-        sb.append("  Model directory: ").append(modelDir.toAbsolutePath()).append(", inference device: ").append(getDevice());
+        sb.append("  Model directory: ").append(TrainingSupport.displayPath(modelDir)).append(", inference device: ").append(getDevice());
         return sb.toString();
     }
 

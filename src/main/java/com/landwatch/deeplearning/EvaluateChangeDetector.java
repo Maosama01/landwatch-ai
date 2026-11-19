@@ -67,11 +67,13 @@ public final class EvaluateChangeDetector {
         long[] latencyNs = new long[patches.size()];
         String deviceName;
         float threshold;
-        String description;
         long start = System.nanoTime();
         try (DeepChangeDetector detector = DeepChangeDetector.load(modelDir, opt.getOrDefault("device", "auto"))) {
             threshold = detector.getThreshold();
             deviceName = detector.getDevice().toString();
+            System.out.println("Model under evaluation (as recorded before this run):");
+            System.out.println(detector.describe());
+            System.out.println();
             System.out.println("Evaluating " + split + " (" + patches.size() + " patches) on " + deviceName
                     + " with threshold " + threshold);
             for (int i = 0; i < patches.size(); i++) {
@@ -91,7 +93,6 @@ public final class EvaluateChangeDetector {
                     System.out.printf(Locale.ROOT, "  %d/%d  running F1 %.4f%n", i + 1, patches.size(), metrics.f1());
                 }
             }
-            description = detector.describe();
         }
         double seconds = (System.nanoTime() - start) / 1e9;
         String latency = latencySummary(latencyNs, deviceName);
@@ -105,7 +106,7 @@ public final class EvaluateChangeDetector {
         sb.append("LandWatch AI - FC-Siam-diff change detection, evaluation on LEVIR-CD ").append(split.toUpperCase(Locale.ROOT))
                 .append(" split\n");
         sb.append("Generated: ").append(LocalDateTime.now()).append('\n');
-        sb.append("Model: ").append(modelDir.toAbsolutePath()).append('\n');
+        sb.append("Model: ").append(TrainingSupport.displayPath(modelDir)).append('\n');
         sb.append("Patches: ").append(patches.size()).append(" of 256x256 (").append(data.resolve("metadata/" + split + "_patches.csv")).append(")\n");
         sb.append("Decision threshold: ").append(threshold).append(" (tuned on VAL during training)\n");
         sb.append("Inference device: ").append(deviceName).append(", ").append(DjlRuntime.describe()).append('\n');
@@ -119,17 +120,16 @@ public final class EvaluateChangeDetector {
         Files.createDirectories(resultsDir);
         Files.writeString(report, sb.toString(), StandardCharsets.UTF_8);
         System.out.println(sb);
-        System.out.println("Wrote " + report.toAbsolutePath());
+        System.out.println("Wrote " + TrainingSupport.displayPath(report));
 
         if (limit <= 0) {
             ModelConfig config = ModelConfig.load(modelDir);
             TrainChangeDetector.putMetrics(config, "metrics." + split, metrics);
             config.set("metrics." + split + ".patches", patches.size());
-            config.set("metrics." + split + ".source", "results/deeplearning/" + split + "_metrics.txt");
+            config.set("metrics." + split + ".source", TrainingSupport.displayPath(report));
             config.save(modelDir);
+            System.out.println("Recorded metrics." + split + ".* in " + TrainingSupport.displayPath(modelDir.resolve("model.properties")));
         }
-        System.out.println();
-        System.out.println(description);
     }
 
     private static String measureCpuLatency(Path modelDir, List<LevirCdPatch> patches, int n) throws IOException {
