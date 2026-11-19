@@ -1,0 +1,43 @@
+SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+Evaluating val (1024 patches) on mps(0) with threshold 0.65
+  256/1024  running F1 0.8716
+  512/1024  running F1 0.8826
+  768/1024  running F1 0.8693
+  1024/1024  running F1 0.8738
+LandWatch AI - FC-Siam-diff change detection, evaluation on LEVIR-CD VAL split
+Generated: 2026-11-20T00:02:51.487358
+Model: models/siamese_unet_levir_13ep
+Patches: 1024 of 256x256 (datasets/LEVIR-CD/processed_256/metadata/val_patches.csv)
+Decision threshold: 0.65 (tuned on VAL during training)
+Inference device: mps(0), DJL 0.40.0 / PyTorch 2.7.1
+Metrics: global pixel confusion matrix over all patches (com.landwatch.evaluation.BinaryChangeMetrics)
+
+Confusion matrix (pixels): TP=2446661  FP=336847  FN=369607  TN=63955749  (total 67108864)
+Change precision : 0.8790
+Change recall    : 0.8688
+Change F1        : 0.8738
+Change IoU       : 0.7760
+Macro F1         : 0.9342
+Mean IoU         : 0.8825
+Cohen's kappa    : 0.8683
+Pixel accuracy   : 0.9895  (misleading alone: classes are imbalanced)
+
+For reference only, at the untuned threshold 0.50: precision 0.8586, recall 0.8867, F1 0.8725, IoU 0.7738
+
+Inference latency per 256x256 patch on mps(0) (predictProbabilities + threshold, batch of 1, excluding 5 warm-up calls, n=1019): mean 14.9 ms, median 14.0 ms, p95 21.4 ms
+Inference latency per 256x256 patch on cpu() [separate run on the first 50 patches, for machines without MPS] (predictProbabilities + threshold, batch of 1, excluding 5 warm-up calls, n=45): mean 45.4 ms, median 44.2 ms, p95 49.8 ms
+Total evaluation wall time (incl. PNG decoding): 20.8 s
+
+Wrote results/deeplearning_13ep/val_metrics.txt
+
+FC-Siam-diff change detector (fully convolutional Siamese U-Net, Daudt, Le Saux & Boulch, ICIP 2018)
+  Encoder widths [16, 32, 64, 128], 1,348,785 trainable parameters + BatchNorm statistics
+  Trained with DJL 0.40.0 / PyTorch 2.7.1 on mps(0)
+  Training data: LEVIR-CD train split, 7120 patches of 256x256 (13 epochs, best epoch 13)
+  Checkpoint and decision threshold (0.65) chosen on the LEVIR-CD val split (1024 patches)
+  Val  : F1 0.8738, IoU 0.7760, precision 0.8790, recall 0.8688
+  Test : not evaluated yet (run EvaluateChangeDetector test)
+  Pixel-level metrics from com.landwatch.evaluation.BinaryChangeMetrics; full reports in results/deeplearning/
+  Model directory: models/siamese_unet_levir_13ep, inference device: mps(0)

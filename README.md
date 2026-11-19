@@ -18,10 +18,10 @@ LEVIR-CD, pixel-level metrics for the *change* class from one global confusion m
 |---|---|---|---|---|---|---|---|
 | Classical baseline (luminance difference + Otsu, `minRegionSize` = 12) | val (64 pairs) | 0.0941 | 0.0494 | 0.0573 | 0.2625 | 0.0270 | `results/benchmarks/baseline_val_metrics.txt` |
 | Classical baseline (same, untouched defaults) | **test** (128 pairs) | 0.1008 | 0.0531 | 0.0633 | 0.2480 | 0.0214 | `results/benchmarks/baseline_test_metrics.txt` |
-| FC-Siam-diff (DJL, threshold 0.80 tuned on val) | val (1,024 patches) | 0.8554 | 0.7473 | 0.8548 | 0.8559 | 0.8490 | `results/deeplearning/val_metrics.txt` |
-| FC-Siam-diff (same model, evaluated once) | **test** (2,048 patches) | **0.8548** | **0.7465** | 0.8600 | 0.8497 | 0.8471 | `results/deeplearning/test_metrics.txt` |
+| FC-Siam-diff (DJL, 13 epochs, threshold 0.65 tuned on val) | val (1,024 patches) | 0.8738 | 0.7760 | 0.8790 | 0.8688 | 0.8683 | `results/deeplearning/val_metrics.txt` |
+| FC-Siam-diff (same model, evaluated once) | **test** (2,048 patches) | **0.8693** | **0.7688** | 0.8716 | 0.8670 | 0.8623 | `results/deeplearning/test_metrics.txt` |
 
-On the held-out test split the trained Siamese network raises change F1 from 0.1008 to 0.8548 and IoU from 0.0531 to 0.7465. Its val and test scores differ by only 0.0006 F1, so tuning the checkpoint and threshold on val did not overfit.
+On the held-out test split the trained Siamese network raises change F1 from 0.1008 to 0.8693 and IoU from 0.0531 to 0.7688. Its val and test scores differ by only 0.0045 F1, so tuning the checkpoint and threshold on val did not overfit. An earlier 7-epoch run (test F1 0.8548) is kept for comparison in `results/deeplearning_run1_7ep/`; the final model was chosen between the two on validation F1 only.
 
 Neural-network fundamentals (plain Java, no libraries):
 
@@ -101,11 +101,13 @@ Every dashboard engine returns only a binary mask; all views, statistics and exp
 │       └── metadata/{train,val,test,all}_patches.csv
 ├── datasets/EuroSAT/               images NOT in the repo; dataset_summary.txt + splits/{train,val,test}.csv are
 ├── models/
-│   ├── siamese_unet_levir/         trained FC-Siam-diff weights (5.4 MB) + model.properties
+│   ├── siamese_unet_levir/         trained FC-Siam-diff weights (5.4 MB) + model.properties (run 2, the default)
+│   ├── siamese_unet_levir_run1_7ep/ first 7-epoch run, kept for comparison
 │   └── eurosat_resnet/             trained EuroSAT ResNet weights (11.2 MB) + model.properties
 ├── results/
 │   ├── benchmarks/                 baseline val/test metrics, per-image CSVs, val-only minRegion sweep
-│   ├── deeplearning/               training log, val threshold sweep, val/test metrics, device benchmark, test_7 example
+│   ├── deeplearning/               run 2: training log, val threshold sweep, val/test metrics, device benchmark, test_7 example
+│   ├── deeplearning_run1_7ep/      run 1 (7 epochs, superseded): the same files, kept for comparison
 │   ├── eurosat/                    training log, val/test metrics, confusion matrices, per-image predictions
 │   ├── fundamentals/               XOR, gradient-check and learning-rules output
 │   └── ui_snapshots/               dashboard screenshots
@@ -188,7 +190,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean test
 mvn clean test
 ```
 
-Expected result: **243 tests, 0 failures** (Java 17.0.21.1, Apple M3, with the LEVIR-CD patches present). By area: fundamentals 59, learning rules 44, classical baseline and visualisation 18, evaluation 29, LEVIR-CD deep learning 28, EuroSAT 19, dashboard 46.
+Expected result: **248 tests, 0 failures** (Java 17.0.21.1, Apple M3, with the LEVIR-CD patches present). By area: fundamentals 59, learning rules 44, classical baseline and visualisation 18, evaluation 29, LEVIR-CD deep learning 30, EuroSAT 19, dashboard 49.
 
 Tests that read real LEVIR-CD patches are skipped automatically (JUnit assumptions) when `datasets/LEVIR-CD/processed_256` is not present. The deep-learning tests need the PyTorch native library, which DJL downloads on the first run.
 
@@ -280,48 +282,63 @@ The baseline flags 19.9656 % of test pixels as change while only 5.0943 % truly 
 
 ### Deep model (FC-Siam-diff) on LEVIR-CD
 
-Sources: `results/deeplearning/{training_log.csv, val_threshold_sweep.csv, val_metrics.txt, test_metrics.txt, device_benchmark.txt}` and `models/siamese_unet_levir/model.properties`.
+Sources: `results/deeplearning/{training_log.csv, val_threshold_sweep.csv, val_metrics.txt, test_metrics.txt, device_benchmark.txt}` and `models/siamese_unet_levir/model.properties` (run 1: `results/deeplearning_run1_7ep/`, `models/siamese_unet_levir_run1_7ep/`).
 
-**Training run.** All 7,120 train patches, batch 8, Adam (lr 1e-3, cosine decay), weighted BCE (pos_weight 4.56) + soft Dice, D4 augmentation, seed 42, on the Apple M3 GPU (MPS) via DJL 0.40.0 / PyTorch 2.7.1. The run stopped after 7 of 13 planned epochs when its 75-minute time budget ran out (67.0 min). Val F1 was still rising, so the model is under-trained rather than converged.
+**Training runs.** All 7,120 train patches, batch 8, Adam (lr 1e-3, cosine decay over 13 epochs), weighted BCE (pos_weight 4.56) + soft Dice, D4 augmentation, seed 42, on the Apple M3 GPU (MPS) via DJL 0.40.0 / PyTorch 2.7.1. The model was trained twice with these settings:
+
+| Run | Epochs | Time | Best val F1 (threshold) | Test F1 | Status |
+|---|---|---|---|---|---|
+| 1 | 7 of 13 (75-minute time budget ran out) | 67.0 min | 0.8554 (0.80) | 0.8548 | superseded; files in `results/deeplearning_run1_7ep/` |
+| 2 | 13 of 13 | 83.4 min | **0.8738** (0.65) | **0.8693** | **selected** |
+
+Run 1's validation F1 was still rising when its time budget ran out, so run 2 was given a 150-minute budget to finish the schedule. The rule was fixed before run 2 started: keep the run with the higher **validation** F1 and evaluate the new model on test exactly once. Each model was evaluated on test once (twice in total), and neither test score was used to choose between them. At epoch 7 the two runs agree within 0.001 val F1 (0.8554 vs. 0.8564), a direct measure of run-to-run variation.
+
+Run 2's learning curve:
 
 | Epoch | Train loss | Val F1 (tuned t) | Val IoU | Best threshold |
 |---|---|---|---|---|
-| 1 | 0.81993 | 0.7477 | 0.5970 | 0.55 |
-| 2 | 0.58860 | 0.7813 | 0.6411 | 0.55 |
-| 3 | 0.49564 | 0.8135 | 0.6857 | 0.75 |
-| 4 | 0.43725 | 0.8177 | 0.6916 | 0.40 |
-| 5 | 0.39443 | 0.8348 | 0.7164 | 0.45 |
-| 6 | 0.36595 | 0.8469 | 0.7345 | 0.80 |
-| **7** (selected) | 0.33654 | **0.8554** | **0.7473** | **0.80** |
+| 1 | 0.87957 | 0.7011 | 0.5398 | 0.70 |
+| 2 | 0.60135 | 0.7781 | 0.6368 | 0.30 |
+| 3 | 0.49671 | 0.7993 | 0.6657 | 0.55 |
+| 4 | 0.43647 | 0.8292 | 0.7082 | 0.70 |
+| 5 | 0.40023 | 0.8378 | 0.7208 | 0.40 |
+| 6 | 0.36647 | 0.8483 | 0.7365 | 0.75 |
+| 7 | 0.33530 | 0.8564 | 0.7488 | 0.85 |
+| 8 | 0.33117 | 0.8540 | 0.7453 | 0.90 |
+| 9 | 0.31116 | 0.8661 | 0.7639 | 0.45 |
+| 10 | 0.29192 | 0.8689 | 0.7682 | 0.70 |
+| 11 | 0.28191 | 0.8714 | 0.7721 | 0.60 |
+| 12 | 0.26960 | 0.8729 | 0.7745 | 0.60 |
+| **13** (selected) | **0.26832** | **0.8738** | **0.7760** | **0.65** |
 
-**Final evaluation** (epoch-7 checkpoint, threshold 0.80; the test split was evaluated exactly once):
+**Final evaluation** (run 2, epoch-13 checkpoint, threshold 0.65; the test split was evaluated exactly once for this model):
 
 | Split | TP | FP | FN | TN | Precision | Recall | F1 | IoU | Macro F1 | κ | Pixel acc. |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| val | 2,410,469 | 409,387 | 405,799 | 63,883,209 | 0.8548 | 0.8559 | 0.8554 | 0.7473 | 0.9245 | 0.8490 | 0.9879 |
-| test | 5,809,506 | 945,411 | 1,027,898 | 126,434,913 | 0.8600 | 0.8497 | 0.8548 | 0.7465 | 0.9235 | 0.8471 | 0.9853 |
+| val | 2,446,661 | 336,847 | 369,607 | 63,955,749 | 0.8790 | 0.8688 | 0.8738 | 0.7760 | 0.9342 | 0.8683 | 0.9895 |
+| test | 5,928,147 | 873,175 | 909,257 | 126,507,149 | 0.8716 | 0.8670 | 0.8693 | 0.7688 | 0.9312 | 0.8623 | 0.9867 |
 
-At the untuned threshold 0.50, test F1 would be 0.8479, so the val-tuned threshold adds about 0.007 F1. F1 is flat (0.8546–0.8554) for thresholds 0.70–0.85.
+At the untuned threshold 0.50, test F1 would be 0.8676, so the val-tuned threshold adds 0.0017 F1. Val F1 is flat (0.8729–0.8738) for thresholds 0.55–0.75.
 
 **Speed.**
-- Training: one step at batch 8 takes 351.3 ms on MPS against 2,456.0 ms on CPU, about 7× faster. CPU and MPS logits for the same weights differ by at most 1.5e-4.
-- Inference: during the test run, the median per 256×256 patch was 55.4 ms on MPS and 53.3 ms on CPU over 50 patches. A full 1024×1024 image (16 tiles) took 506 ms on MPS.
-- These timings were measured while other jobs loaded the machine and are indicative only.
+- Training: one step at batch 8 takes 351.3 ms on MPS against 2,456.0 ms on CPU, about 7× faster (measured while other jobs loaded the machine). CPU and MPS logits for the same weights differ by at most 1.5e-4.
+- Inference (run 2's test evaluation, otherwise idle machine): median 13.2 ms per 256×256 patch on MPS (n = 2,043) and 41.7 ms on CPU (n = 45). A full 1024×1024 image (16 tiles) took 511 ms on MPS.
+- All timings come from one 8 GB laptop and are indicative only.
 
-**Example image** (`results/deeplearning/examples/`, LEVIR-CD `test_7`, full 1024×1024 via tiled inference): F1 0.8938, IoU 0.8080 on this single image. It is one illustration, already counted inside the test score above, not a separate result.
+**Example image** (`results/deeplearning/examples/`, LEVIR-CD `test_7`, full 1024×1024 via tiled inference): F1 0.9043, IoU 0.8254 on this single image (run 1: 0.8938, 0.8080). It is one illustration, already counted inside the test score above, not a separate result.
 
 ### Baseline vs. deep model (LEVIR-CD test)
 
 | | Classical baseline | FC-Siam-diff | Change |
 |---|---|---|---|
-| Change F1 | 0.1008 | 0.8548 | +0.7540 |
-| Change IoU | 0.0531 | 0.7465 | +0.6934 |
-| Precision | 0.0633 | 0.8600 | +0.7967 |
-| Recall | 0.2480 | 0.8497 | +0.6017 |
-| Cohen's κ | 0.0214 | 0.8471 | +0.8257 |
-| Pixels flagged as change | 26,797,321 (19.97 %) | 6,754,917 (5.03 %) | true change: 6,837,404 (5.09 %) |
+| Change F1 | 0.1008 | 0.8693 | +0.7685 |
+| Change IoU | 0.0531 | 0.7688 | +0.7157 |
+| Precision | 0.0633 | 0.8716 | +0.8083 |
+| Recall | 0.2480 | 0.8670 | +0.6190 |
+| Cohen's κ | 0.0214 | 0.8623 | +0.8409 |
+| Pixels flagged as change | 26,797,321 (19.97 %) | 6,801,322 (5.07 %) | true change: 6,837,404 (5.09 %) |
 
-The baseline flags about four times as many pixels as truly changed, and about 94 % of its detections are false alarms. The learned model flags almost exactly the true amount of change, and 86 % of its detections are correct. Learned bi-temporal features separate building change from illumination, season and registration noise far better than a fixed brightness-difference rule.
+The baseline flags about four times as many pixels as truly changed, and about 94 % of its detections are false alarms. The learned model flags almost exactly the true amount of change, and 87 % of its detections are correct. Learned bi-temporal features separate building change from illumination, season and registration noise far better than a fixed brightness-difference rule.
 
 ### EuroSAT land-use classification
 
@@ -356,7 +373,7 @@ The split is random, so tiles from the same region can fall into different split
 
 All screenshots are rendered from the real application by `DashboardSnapshotTool` (`results/ui_snapshots/`). The per-image numbers apply to that one image only.
 
-**Deep model on a real LEVIR-CD test pair (`test_7`): error map against ground truth.** Yellow = correctly detected change, orange = false alarm, blue = missed change. Per-image F1 is 0.8938, shown next to the dataset benchmark of 0.8548.
+**Deep model on a real LEVIR-CD test pair (`test_7`): error map against ground truth.** Yellow = correctly detected change, orange = false alarm, blue = missed change. Per-image F1 is 0.9043, shown next to the dataset benchmark of 0.8693.
 
 ![Deep model errors view](results/ui_snapshots/05_levir_test_7_deep_errors.png)
 
@@ -379,10 +396,10 @@ More views: [red overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png)
 - **FC-Siam-diff is order-symmetric.** Its decoder only sees |enc(A) − enc(B)|, so swapping the two dates gives the same output (checked in inference mode by `FcSiamDiffTest`): it cannot tell construction from demolition.
 - **No ground-sample-distance calibration** exists for arbitrary inputs. The dashboard reports areas in pixels only, and its "change level" is a heuristic based on the share of changed pixels, not a verified assessment.
 - **The bundled demo pair is synthetic**, not real satellite imagery.
-- **Training is not bit-reproducible.** Augmentation draws from an unseeded `ThreadLocalRandom`, and GPU (MPS) kernels are not guaranteed deterministic. The deep-model results come from a single training run; there is no variance estimate over seeds.
+- **Training is not bit-reproducible.** Augmentation draws from an unseeded `ThreadLocalRandom`, and GPU (MPS) kernels are not guaranteed deterministic. The change model was trained twice with identical settings (they agree within 0.001 val F1 at epoch 7), which is not a variance estimate over seeds.
 - **Deviations from the FC-Siam-diff paper:** nearest-neighbour upsampling + 3×3 convolution instead of transposed convolution (DJL 0.40's PyTorch engine lacks the deconvolution operator), no dropout, an |A − B| bottleneck, and BatchNorm statistics shared across both dates.
 - **XOR training only shows that backpropagation works.** It is not evidence about training satellite models. The recorded XOR losses also differ slightly from those first reported on the original Windows laptop (see `results/fundamentals/xor_and_gradient_check_output.txt`).
-- Latencies were measured on a busy 8 GB laptop and are indicative only.
+- Latencies come from one 8 GB laptop (the baseline's under load) and are indicative only.
 
 ---
 

@@ -1,0 +1,11 @@
+FC-Siam-diff change detector (fully convolutional Siamese U-Net, Daudt, Le Saux & Boulch, ICIP 2018)
+  Encoder widths [16, 32, 64, 128], 1,348,785 trainable parameters + BatchNorm statistics
+  Trained with DJL 0.40.0 / PyTorch 2.7.1 on mps(0)
+  Training data: LEVIR-CD train split, 7120 patches of 256x256 (13 epochs, best epoch 13)
+  Checkpoint and decision threshold (0.65) chosen on the LEVIR-CD val split (1024 patches)
+  Val  : F1 0.8738, IoU 0.7760, precision 0.8790, recall 0.8688
+  Test : F1 0.8693, IoU 0.7688, precision 0.8716, recall 0.8670 (held-out test split, 2048 patches, evaluated once)
+  Pixel-level metrics from com.landwatch.evaluation.BinaryChangeMetrics; full reports in results/deeplearning/
+  Model directory: models/siamese_unet_levir, inference device: mps(0)
+
+Image 1024x1024, 16 tile(s) of 256 px, inference 511 ms on mps(0); changed pixels 123604 (11.79%) at threshold 0.650 -> results/deeplearning/examples/test_7_mask.png
