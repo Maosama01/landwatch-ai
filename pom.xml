@@ -19,6 +19,11 @@
         <javafx.version>17.0.10</javafx.version>
         <junit.version>5.10.2</junit.version>
         <djl.version>0.40.0</djl.version>
+        <!-- Runtime settings forwarded to the app by javafx:run; override on the command line, e.g.
+             mvn javafx:run -Dlandwatch.model.dir=/path/to/model -Dlandwatch.deeplearning.device=cpu -->
+        <landwatch.model.dir>models/siamese_unet_levir</landwatch.model.dir>
+        <landwatch.deeplearning.device>auto</landwatch.deeplearning.device>
+        <landwatch.dataset.dir>datasets/LEVIR-CD</landwatch.dataset.dir>
     </properties>
 
     <dependencies>
@@ -108,6 +113,11 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>com.landwatch.Launcher</mainClass>
+                    <options>
+                        <option>-Dlandwatch.model.dir=${landwatch.model.dir}</option>
+                        <option>-Dlandwatch.deeplearning.device=${landwatch.deeplearning.device}</option>
+                        <option>-Dlandwatch.dataset.dir=${landwatch.dataset.dir}</option>
+                    </options>
                 </configuration>
             </plugin>
         </plugins>

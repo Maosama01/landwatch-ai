@@ -27,6 +27,11 @@ public interface ChangeDetectionEngine {
     /** One-line description, or the reason the engine is unavailable. */
     String getStatusNote();
 
+    /** Whether the engine is still being prepared in the background (e.g. a deep model loading). */
+    default boolean isLoading() {
+        return false;
+    }
+
     /**
      * Runs change detection on a co-registered image pair of identical size.
      *
