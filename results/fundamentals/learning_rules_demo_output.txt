@@ -1,0 +1,57 @@
+==============================================================
+ LANDWATCH AI - Learning Rules Demonstration (seed 42)
+==============================================================
+
+[1] HEBBIAN LEARNING   Delta w = eta * y * x,  y = w . x
+    Data: 500 zero-mean 2-D points, std 2.0 along 30 deg, 0.5 across;
+    analytic principal eigenvector e1 = [0.8660, 0.5000]
+    eta = 0.001, initial w = [0.2275, 0.3528]
+    |w| per epoch: 0.420 2.45 16.0 104 682 4.46e+03 2.92e+04 1.91e+05 1.25e+06
+    |w| grew by a factor of 2.97e+06 in 8 epochs (no upper bound).
+    |cos(w, e1)| = 1.0000 (direction aligns with e1, but length explodes)
+
+[2] OJA'S RULE (modified Hebbian)   Delta w = eta * y * (x - y * w)
+    eta = 0.005, 30 epochs, initial w = [0.2275, 0.3528]
+    |w| after epochs 1, 5, 30: 1.0003, 1.0003, 1.0004
+    final w = [0.8649, 0.5028]   (e1 = [0.8660, 0.5000])
+    |w| = 1.0004 (self-normalised to ~1), |cos(w, e1)| = 1.00000, angle error = 0.17 deg
+
+[3] COMPETITIVE LEARNING (winner-take-all)
+    winner k* = argmin_k |x - w_k|,  Delta w_k* = eta * (x - w_k*),  losers unchanged
+    Data: 3 Gaussian clusters x 100 points (std 0.5) at (0,4), (-4,-2), (4,-2)
+    eta = 0.1, 20 epochs; mean distance to winner: 3.948 -> 0.649
+    prototype 0 = [0.1571, 4.1432]  -> nearest centre [0.0000, 4.0000], distance 0.213
+    prototype 1 = [4.0585, -2.0212]  -> nearest centre [4.0000, -2.0000], distance 0.062
+    prototype 2 = [-3.8341, -2.1085]  -> nearest centre [-4.0000, -2.0000], distance 0.198
+
+[4a] PERCEPTRON RULE (Rosenblatt)   Delta w = eta * (t - y) * x,  y = step(w . x + b)
+    AND: converged in 2 epochs            accuracy 100%  w = [0.1276, 0.1832], b = -0.2913
+    OR : converged in 2 epochs            accuracy 100%  w = [0.2276, 0.2832], b = -0.0913
+    XOR: NOT converged after 1000 epochs  accuracy  25%  w = [-0.0724, 0.0832], b = 0.0087
+    XOR: best accuracy at any of the 1000 epoch boundaries = 50%, converged = false
+    XOR is not linearly separable: a single perceptron can get at most 3/4 right,
+    so its weights keep cycling. The project's MultilayerPerceptron solves XOR.
+
+[4b] LMS / WIDROW-HOFF DELTA RULE   Delta w = eta * (t - w . x - b) * x
+    Target: t = 2*x1 - 3*x2 + 0.5*x3 + 1  (200 noiseless samples, x in [-1,1]^3)
+    eta = 0.05, 100 epochs; MSE: 5.966 -> 9.571e-31 (epoch 10: 4.440e-24)
+    learned w = [2.0000, -3.0000, 0.5000], b = 1.0000   (true w = [2.0000, -3.0000, 0.5000], b = 1.0000)
+
+[5] BOLTZMANN LEARNING   E(s) = -1/2 s^T W s - b^T s
+    Delta w_ij = eta * (<s_i s_j>_data - <s_i s_j>_model), model term by Gibbs sampling
+    3 binary units; training patterns 000, 001, 110, 111 (s0 always equals s1)
+    eta = 0.5, 300 epochs x 1000 Gibbs samples
+    avg log-likelihood: -2.0794 -> -1.4314   (best possible = ln(1/4) = -1.3863)
+    weights: w01 = 6.285, w02 = -0.052, w12 = -0.020;  biases: [-3.0530, -3.0470, 0.0280]
+    10000 free-running Gibbs samples: s0 == s1 in 95.8% (chance = 50%)
+    state  energy   P(state)   in training set?
+     000    0.000   0.2187     yes
+     001   -0.028   0.2249     yes
+     010    3.047   0.0104     no (s0 != s1)
+     011    3.039   0.0105     no (s0 != s1)
+     100    3.053   0.0103     no (s0 != s1)
+     101    3.077   0.0101     no (s0 != s1)
+     110   -0.185   0.2632     yes
+     111   -0.142   0.2520     yes
+
+Demo complete.

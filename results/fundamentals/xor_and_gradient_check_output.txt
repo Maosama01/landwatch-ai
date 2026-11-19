@@ -1,0 +1,20 @@
+# Output captured from: mvn test -Dtest=BackpropagationEngineTest,GradientCheckerTest
+# Captured 2026-11-19 on Java 17.0.21.1 (Apple Silicon, arm64).
+# Both tests use a fixed seed (42), so these numbers are reproducible run to run on this machine.
+# The handover from the original Windows laptop reported slightly different XOR losses
+# (initial 0.144085, final 0.000028); those could not be reproduced with the current code.
+
+Gradient Check Summary:
+  • Status: PASSED (Analytical gradients verified)
+  • Total Parameters Checked: 13
+  • Failed Parameters: 0
+  • Max Relative Error: 9.00e-10 (Tolerance: 1.00e-05)
+  • Max Absolute Error: 2.06e-12
+=== XOR TRAINING DEMONSTRATION ===
+Initial Loss: 0.139816
+Final Loss:   0.000043
+Reduction:    99.97%
+Pattern [0, 0] -> Target: 0.0, Predicted: 0.0053
+Pattern [0, 1] -> Target: 1.0, Predicted: 0.9917
+Pattern [1, 0] -> Target: 1.0, Predicted: 0.9913
+Pattern [1, 1] -> Target: 0.0, Predicted: 0.0130
