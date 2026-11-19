@@ -37,6 +37,23 @@ public final class LearningRulesDemo {
         System.out.println("Demo complete.");
     }
 
+    /**
+     * Runs {@link #main} and returns everything it printed, for the dashboard's NN Fundamentals page.
+     * The demo itself is unchanged: {@code System.out} is redirected into a buffer for the duration of the
+     * run and restored afterwards (calls are serialised, so two runs never interleave).
+     */
+    public static synchronized String runToString() {
+        java.io.PrintStream original = System.out;
+        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+        try (java.io.PrintStream capture = new java.io.PrintStream(buffer, true, java.nio.charset.StandardCharsets.UTF_8)) {
+            System.setOut(capture);
+            main(new String[0]);
+        } finally {
+            System.setOut(original);
+        }
+        return buffer.toString(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     // ------------------------------------------------------------------
     // 1 + 2. Hebbian vs. Oja on the same correlated data
     // ------------------------------------------------------------------

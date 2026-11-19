@@ -93,4 +93,22 @@ class ResultExporterTest {
         assertFalse(summary.contains("Raw changed px"));
         assertFalse(summary.toLowerCase().contains("hectare:"));
     }
+
+    @Test
+    @DisplayName("An extra section (e.g. the per-image ground-truth comparison) is appended to the summary")
+    void extraSectionAppended(@TempDir Path tmp) throws Exception {
+        boolean[][] mask = new boolean[4][4];
+        mask[2][2] = true;
+        EngineResult r = EngineResult.fromMask("siamese-unet", "Deep model – Siamese U-Net", mask, 3);
+        ChangeVisualizationSet visuals = ChangeVisualizationSet.build(r, solid(4, 4, Color.GREEN));
+        List<File> files = ResultExporter.export(tmp.toFile(), "run", r, visuals, "LEVIR-CD test/test_7.png", WHEN,
+                "Compared with ground truth (THIS IMAGE ONLY)\nChange F1        : 0.5000");
+        String summary = Files.readString(files.get(3).toPath(), StandardCharsets.UTF_8);
+        assertTrue(summary.contains("Engine:           Deep model – Siamese U-Net"));
+        assertTrue(summary.endsWith("Compared with ground truth (THIS IMAGE ONLY)\nChange F1        : 0.5000\n"), summary);
+
+        List<File> plain = ResultExporter.export(tmp.toFile(), "run2", r, visuals, "in", WHEN, null);
+        assertEquals(ResultExporter.buildSummary(r, "in", WHEN),
+                Files.readString(plain.get(3).toPath(), StandardCharsets.UTF_8));
+    }
 }

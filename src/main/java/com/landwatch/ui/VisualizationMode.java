@@ -8,7 +8,7 @@ import java.util.List;
  * The three change-visualisation modes offered by the dashboard, with the legend shown under the image.
  * Legend colours are taken from {@link ChangeVisualizer} so the legend always matches the pixels.
  */
-public enum VisualizationMode {
+public enum VisualizationMode implements ChangeView {
 
     BINARY_MASK("Binary Mask",
             "Raw engine output: every pixel is either unchanged (black) or changed (white).",
@@ -62,9 +62,9 @@ public enum VisualizationMode {
         this.legend = legend;
     }
 
-    public String getDisplayName() { return displayName; }
-    public String getDescription() { return description; }
-    public List<LegendEntry> getLegend() { return legend; }
+    @Override public String getDisplayName() { return displayName; }
+    @Override public String getDescription() { return description; }
+    @Override public List<LegendEntry> getLegend() { return legend; }
 
     @Override
     public String toString() { return displayName; }

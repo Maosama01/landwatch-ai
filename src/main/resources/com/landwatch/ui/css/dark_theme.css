@@ -560,3 +560,164 @@
     -fx-background-color: #7f1d1d;
     -fx-text-fill: #fca5a5;
 }
+
+/* ==========================================================================
+   GROUND-TRUTH COMPARISON (PER IMAGE)
+   ========================================================================== */
+.gt-block {
+    -fx-background-color: #0f172a;
+    -fx-background-radius: 6;
+    -fx-border-color: #f59e0b;
+    -fx-border-width: 0 0 0 3;
+}
+
+.gt-block-inactive {
+    -fx-border-color: #334155;
+}
+
+.gt-title {
+    -fx-text-fill: #e2e8f0;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.gt-note {
+    -fx-text-fill: #94a3b8;
+    -fx-font-size: 11px;
+}
+
+.stat-note-plain {
+    -fx-text-fill: #94a3b8;
+    -fx-font-size: 11px;
+}
+
+/* ==========================================================================
+   SECONDARY PAGES (BENCHMARKS, FUNDAMENTALS, FAILURE ANALYSIS, ABOUT)
+   ========================================================================== */
+.page-note {
+    -fx-text-fill: #cbd5e1;
+    -fx-font-size: 12px;
+}
+
+.note-bullet {
+    -fx-text-fill: #10b981;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.bench-table {
+    -fx-background-color: #0f172a;
+    -fx-background-radius: 6;
+    -fx-border-color: #243247;
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+}
+
+.bench-header {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 10;
+    -fx-border-color: transparent transparent #243247 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.bench-cell {
+    -fx-padding: 8 10;
+}
+
+.bench-cell-shaded {
+    -fx-padding: 8 10;
+    -fx-background-color: #131c2e;
+}
+
+.bench-model {
+    -fx-text-fill: #f1f5f9;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.bench-split {
+    -fx-text-fill: #e2e8f0;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.bench-sub {
+    -fx-text-fill: #94a3b8;
+    -fx-font-size: 11px;
+}
+
+.bench-source {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 10px;
+}
+
+.bench-value {
+    -fx-text-fill: #38bdf8;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.bench-value-primary {
+    -fx-text-fill: #34d399;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.bench-na {
+    -fx-text-fill: #fbbf24;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+}
+
+.btn-mini {
+    -fx-background-color: #334155;
+    -fx-text-fill: #f8fafc;
+    -fx-font-size: 11px;
+    -fx-padding: 3 10;
+    -fx-background-radius: 5;
+    -fx-cursor: hand;
+}
+
+.btn-mini:hover {
+    -fx-background-color: #475569;
+}
+
+.btn-mini:disabled {
+    -fx-opacity: 0.45;
+}
+
+.mono-output {
+    -fx-font-family: "Menlo", "Consolas", "Courier New", monospace;
+    -fx-font-size: 11.5px;
+}
+
+.kv-key {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.kv-value {
+    -fx-text-fill: #e2e8f0;
+    -fx-font-size: 12px;
+}
+
+.kv-ok {
+    -fx-text-fill: #34d399;
+}
+
+.kv-warn {
+    -fx-text-fill: #fbbf24;
+}
+
+.scroll-bar:horizontal {
+    -fx-background-color: transparent;
+    -fx-pref-height: 10;
+}
+
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: #334155;
+    -fx-background-radius: 5;
+}
