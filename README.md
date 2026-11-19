@@ -41,6 +41,7 @@ Neural-network fundamentals (plain Java, no libraries):
 - **Neural-network fundamentals from scratch.** McCulloch–Pitts and sigmoid neurons, dense layers, MLP, backpropagation, SGD / batch GD / momentum / Nesterov (true lookahead gradient), central-difference gradient checking.
 - **Classic learning rules.** Hebbian, Oja, competitive (winner-take-all), perceptron, LMS (Widrow–Hoff) and a small Boltzmann machine trained with Gibbs sampling.
 - **Deep change detection (DJL + PyTorch).** FC-Siam-diff with a shared encoder and |enc(A) − enc(B)| skip connections (1,348,785 trainable parameters), weighted BCE + soft Dice loss, D4 flip/rotation augmentation, train-only normalisation, a decision threshold tuned on val, and tiled inference with mirror padding for images of any size. Runs on CPU or the Apple-silicon GPU (MPS).
+- **Land-use classification (DJL).** A ResNet-18-style classifier trained on EuroSAT (10 classes, Sentinel-2 RGB), with a K×K confusion matrix and per-class metrics (`MulticlassMetrics`), training/evaluation/prediction CLIs and an inference API.
 - **JavaFX dashboard.** Choose between the classical baseline and the trained deep model (loaded in the background) and run either on the same pair. Views: binary mask, red overlay and thematic change map, plus ground truth and an error map (TP / FP / FN) when a real LEVIR-CD pair is loaded. Per-image F1 / IoU / precision / recall against ground truth, pixel statistics, an audit log and export of every run. Sidebar pages: Model Benchmarks (read from the result files at runtime), NN Fundamentals (runs XOR, the gradient check and the learning-rules demo live), Failure Analysis (the baseline's worst test images) and About / Runtime.
 
 ---
@@ -98,11 +99,14 @@ Every dashboard engine returns only a binary mask; all views, statistics and exp
 │   └── processed_256/
 │       ├── preparation_report.txt
 │       └── metadata/{train,val,test,all}_patches.csv
+├── datasets/EuroSAT/               images NOT in the repo; dataset_summary.txt + splits/{train,val,test}.csv are
 ├── models/
-│   └── siamese_unet_levir/         trained FC-Siam-diff weights (5.4 MB) + model.properties
+│   ├── siamese_unet_levir/         trained FC-Siam-diff weights (5.4 MB) + model.properties
+│   └── eurosat_resnet/             trained EuroSAT ResNet weights (11.2 MB) + model.properties
 ├── results/
 │   ├── benchmarks/                 baseline val/test metrics, per-image CSVs, val-only minRegion sweep
 │   ├── deeplearning/               training log, val threshold sweep, val/test metrics, device benchmark, test_7 example
+│   ├── eurosat/                    training log, val/test metrics, confusion matrices, per-image predictions
 │   ├── fundamentals/               XOR, gradient-check and learning-rules output
 │   └── ui_snapshots/               dashboard screenshots
 └── src/
@@ -110,7 +114,8 @@ Every dashboard engine returns only a binary mask; all views, statistics and exp
     │   ├── fundamentals/           math, neurons, mlp, backprop, optimizers, gradientcheck, learningrules
     │   ├── geospatial/             classical baseline, image loading, visualisation
     │   ├── evaluation/             metrics, LEVIR-CD reader, baseline benchmark and sweep
-    │   ├── deeplearning/           FC-Siam-diff, loss, data pipeline, training/evaluation/prediction CLIs
+    │   ├── deeplearning/           FC-Siam-diff, loss, data pipeline, training/evaluation/prediction CLIs;
+    │   │                           eurosat/ = EuroSAT ResNet classifier
     │   └── ui/                     JavaFX dashboard, engines, export
     ├── main/resources/com/landwatch/
     │   ├── sample_data/siteA_{pre,post}.bmp   SYNTHETIC demo pair (not satellite imagery)
@@ -165,7 +170,8 @@ The deep-learning tools find the patches at `datasets/LEVIR-CD/processed_256` re
 ### EuroSAT (land-use classification)
 
 1. Download `EuroSAT_RGB.zip` from Zenodo record 7711810: <https://zenodo.org/records/7711810> (project page: <https://github.com/phelber/EuroSAT>).
-2. Unzip it into `datasets/EuroSAT/`.
+2. Unzip it into `datasets/EuroSAT/` so that the images are at `datasets/EuroSAT/EuroSAT_RGB/<Class>/<Class>_<n>.jpg` (27,000 JPEGs). Check the archive's MD5 against the value on the Zenodo record.
+3. The committed split in `datasets/EuroSAT/splits/` is used as is. To recreate it (stratified 70/15/15, seed 42), run `java -cp "$CP" com.landwatch.deeplearning.eurosat.EuroSatSplit --root datasets/EuroSAT --seed 42`, with `CP` set up as in "Deep model" below.
 
 ---
 
@@ -182,7 +188,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean test
 mvn clean test
 ```
 
-<!-- PENDING:TEST_COUNT -->
+Expected result: **243 tests, 0 failures** (Java 17.0.21.1, Apple M3, with the LEVIR-CD patches present). By area: fundamentals 59, learning rules 44, classical baseline and visualisation 18, evaluation 29, LEVIR-CD deep learning 28, EuroSAT 19, dashboard 46.
 
 Tests that read real LEVIR-CD patches are skipped automatically (JUnit assumptions) when `datasets/LEVIR-CD/processed_256` is not present. The deep-learning tests need the PyTorch native library, which DJL downloads on the first run.
 
@@ -235,6 +241,19 @@ java -cp "$CP" com.landwatch.deeplearning.DeviceBenchmark 8 12 256
 
 - `TrainChangeDetector` also accepts `--train-limit N` / `--val-limit N` for quick smoke runs. It writes `models/siamese_unet_levir/` (weights + `model.properties` with architecture, normalisation, threshold, hyper-parameters, versions) and `results/deeplearning/training_log.csv` and `val_threshold_sweep.csv`.
 - `EvaluateChangeDetector <val|test|train>` accepts `--model`, `--data`, `--results`, `--device auto|cpu|mps`, `--limit N`, `--cpu-latency-patches N` (default 50) and `--force true`. It writes `results/deeplearning/<split>_metrics.txt` and refuses to overwrite an existing `test_metrics.txt` unless `--force true` is given.
+
+### EuroSAT classifier: training, evaluation, prediction (needs `datasets/EuroSAT`)
+
+```bash
+# CP as above (target/classes + the dependency classpath)
+java -Xmx1500m -cp "$CP" com.landwatch.deeplearning.eurosat.TrainEuroSatClassifier \
+    --data datasets/EuroSAT --epochs 20 --batch 64 --lr 1e-3 --device auto --seed 42 --max-minutes 30
+java -cp "$CP" com.landwatch.deeplearning.eurosat.EvaluateEuroSatClassifier val  --device cpu
+java -cp "$CP" com.landwatch.deeplearning.eurosat.EvaluateEuroSatClassifier test --device cpu   # once; refuses to overwrite without --force true
+java -cp "$CP" com.landwatch.deeplearning.eurosat.PredictEuroSatClass tile.jpg --device cpu
+```
+
+Defaults: `--model models/eurosat_resnet`, `--results results/eurosat`, `--splits datasets/EuroSAT/splits`.
 
 ### Neural-network fundamentals
 
@@ -306,11 +325,50 @@ The baseline flags about four times as many pixels as truly changed, and about 9
 
 ### EuroSAT land-use classification
 
-<!-- PENDING:EUROSAT_RESULTS -->
+A separate task: scene classification of single 64×64 Sentinel-2 RGB tiles (10 m GSD) into 10 land-use / land-cover classes. It is **not** change detection and is not applied to LEVIR-CD images.
+
+Sources: `results/eurosat/{training_log.csv, val_metrics.txt, test_metrics.txt, confusion_matrix_test.csv}`, `models/eurosat_resnet/model.properties` and `datasets/EuroSAT/dataset_summary.txt`.
+
+**Setup.**
+- **Split:** stratified 70/15/15 with seed 42, giving 18,900 train, 4,050 val and 4,050 test images. The split is committed in `datasets/EuroSAT/splits/`.
+- **Model:** a ResNet-18-style network adapted to 64×64 inputs (3×3 stem, no max-pool, stages of 32-64-128-256 channels, 2,797,610 parameters).
+- **Training:** 20 epochs, Adam with lr 1e-3 and cosine decay, batch 64, D4 augmentation, 26.8 min on MPS.
+- **Selection:** the epoch with the best val accuracy (19); test evaluated once.
+
+| Split | Images | Correct | Overall accuracy | Macro F1 | Macro precision | Macro recall |
+|---|---|---|---|---|---|---|
+| val | 4,050 | 3,939 | 0.9726 | 0.9716 | 0.9722 | 0.9713 |
+| **test** | 4,050 | 3,968 | **0.9798** | **0.9792** | 0.9794 | 0.9791 |
+
+| Class | Test F1 | Class | Test F1 |
+|---|---|---|---|
+| AnnualCrop | 0.9767 | Pasture | 0.9699 |
+| Forest | 0.9911 | PermanentCrop | 0.9573 |
+| HerbaceousVegetation | 0.9648 | Residential | 0.9911 |
+| Highway | 0.9881 | River | 0.9812 |
+| Industrial | 0.9800 | SeaLake | 0.9922 |
+
+The most frequent test confusions are between visually similar vegetation classes: PermanentCrop → HerbaceousVegetation (10 images), HerbaceousVegetation → PermanentCrop (6) and Pasture → HerbaceousVegetation (6).
+
+The split is random, so tiles from the same region can fall into different splits. These numbers may therefore overstate performance on unseen regions, and they are not directly comparable with published EuroSAT results, which use other splits.
 
 ### Dashboard
 
-<!-- PENDING:SCREENSHOTS -->
+All screenshots are rendered from the real application by `DashboardSnapshotTool` (`results/ui_snapshots/`). The per-image numbers apply to that one image only.
+
+**Deep model on a real LEVIR-CD test pair (`test_7`): error map against ground truth.** Yellow = correctly detected change, orange = false alarm, blue = missed change. Per-image F1 is 0.8938, shown next to the dataset benchmark of 0.8548.
+
+![Deep model errors view](results/ui_snapshots/05_levir_test_7_deep_errors.png)
+
+**Classical baseline on the same pair.** Per-image F1 0.2567: most detections are false alarms.
+
+![Classical baseline errors view](results/ui_snapshots/07_levir_test_7_classical_errors.png)
+
+**Model Benchmarks page.** Every value is read from `results/` at runtime.
+
+![Model benchmarks page](results/ui_snapshots/08_page_model_benchmarks.png)
+
+More views: [red overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png), [ground truth](results/ui_snapshots/04_levir_test_7_deep_ground_truth.png), [synthetic demo pair](results/ui_snapshots/01_demo_synthetic_classical_overlay.png), [NN fundamentals](results/ui_snapshots/11_page_nn_fundamentals_learning_rules.png), [failure analysis](results/ui_snapshots/12_page_failure_analysis.png), [about / runtime](results/ui_snapshots/13_page_about_runtime.png).
 
 ---
 
