@@ -18,6 +18,12 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.stage.Stage;
 
 import javax.imageio.ImageIO;
@@ -38,7 +44,8 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Loads dashboard.fxml with the real controller and stylesheet in an off-screen Stage and drives it
  * through the real handlers: the synthetic demo pair, a real LEVIR-CD test pair analysed by the deep
- * model and by the classical baseline (overlay, ground-truth and errors views), and the Benchmarks,
+ * model and by the classical baseline (compare, overlay, ground-truth and errors views, and the errors
+ * view in the light theme), and the Benchmarks,
  * NN Fundamentals, Failure Analysis and About pages. Saves {@code scene.snapshot()} PNGs into
  * {@code results/ui_snapshots/} at 1280x840 (plus a few at the 1100x760 minimum-size check). No window
  * is shown; the tool exits with {@link Platform#exit()}.</p>
@@ -76,10 +83,14 @@ public final class DashboardSnapshotTool {
         } catch (Throwable t) {
             t.printStackTrace();
             exitCode = 1;
-        } finally {
-            Platform.exit();
         }
         written.forEach(p -> System.out.println("[snapshot] " + p));
+        // JavaFX's own shutdown can stall on macOS under heavy load (MacTimer._stop); every file is
+        // already written, so give it 5 s and then exit regardless.
+        Thread exiter = new Thread(Platform::exit, "fx-exit");
+        exiter.setDaemon(true);
+        exiter.start();
+        exiter.join(5000);
         System.exit(exitCode);
     }
 
@@ -113,12 +124,14 @@ public final class DashboardSnapshotTool {
             System.out.println("[deep model] state=" + deep.getState() + " note=" + deep.getStatusNote());
             printEngineSelector(scene);
 
-            // 1. Synthetic demo pair, classical baseline (no ground truth available).
+            // 1. Synthetic demo pair, classical baseline (no ground truth available). The deep model is
+            //    selected automatically once loaded, so the baseline is chosen explicitly here.
+            ChangeDetectionEngine classical = onFx(() -> engineCombo(scene).getItems().get(0));
             onFx(() -> {
                 ((Button) scene.lookup("#loadDemoButton")).fire();
                 return null;
             });
-            analyze(scene, controller, null);
+            analyze(scene, controller, classical);
             selectAndScroll(scene, controller, VisualizationMode.RED_OVERLAY);
             files.add(save(scene, outDir, "01_demo_synthetic_classical_overlay.png"));
             reportTruncation(scene, "01");
@@ -138,8 +151,12 @@ public final class DashboardSnapshotTool {
             if (deep.isAvailable()) {
                 analyze(scene, controller, deep);
                 report(controller, "deep");
+                onFx(() -> {
+                    controller.selectCompare();
+                    return null;
+                });
                 scrollTop(scene);
-                files.add(save(scene, outDir, "02_levir_" + tag + "_deep_inputs.png"));
+                files.add(save(scene, outDir, "02_levir_" + tag + "_compare_before_after.png"));
                 for (Object[] v : new Object[][]{
                         {VisualizationMode.RED_OVERLAY, "03_levir_" + tag + "_deep_overlay.png"},
                         {GroundTruthView.GROUND_TRUTH, "04_levir_" + tag + "_deep_ground_truth.png"},
@@ -152,8 +169,10 @@ public final class DashboardSnapshotTool {
                 System.out.println("[deep model] NOT available, deep snapshots skipped: " + deep.getStatusNote());
             }
 
+            // Interaction check: real shortcuts, a drag on the swipe divider and a dropped LEVIR-CD file.
+            interactionCheck(scene, controller, pair);
+
             // 3. Same pair, classical baseline.
-            ChangeDetectionEngine classical = onFx(() -> engineCombo(scene).getItems().get(0));
             analyze(scene, controller, classical);
             report(controller, "classical");
             for (Object[] v : new Object[][]{
@@ -168,6 +187,10 @@ public final class DashboardSnapshotTool {
             if (deep.isAvailable()) {
                 analyze(scene, controller, deep);
                 selectAndScroll(scene, controller, GroundTruthView.ERRORS);
+                // The same view in the light theme (for a projector in a bright room).
+                fire(scene, "#themeToggleButton");
+                files.add(save(scene, outDir, "16_light_theme_levir_" + tag + "_deep_errors.png"));
+                fire(scene, "#themeToggleButton");
             }
 
             // 4. Pages.
@@ -223,6 +246,45 @@ public final class DashboardSnapshotTool {
         return files;
     }
 
+    /**
+     * Drives the controls the way a user does and prints what happened, so behaviour (not only layout) is
+     * checked: Shortcut+6 opens the swipe comparison, a press at a quarter of the image moves the divider
+     * there, Shortcut+1 returns to the overlay, and dropping one LEVIR-CD A/ file loads the pair with its label.
+     */
+    private static void interactionCheck(Scene scene, DashboardController controller, Path pair) throws Exception {
+        String result = onFx(() -> {
+            StringBuilder sb = new StringBuilder();
+            KeyCombination compare = new KeyCodeCombination(KeyCode.DIGIT6, KeyCombination.SHORTCUT_DOWN);
+            scene.getAccelerators().get(compare).run();
+            sb.append("shortcut+6 -> compare=").append(controller.isCompareActive());
+            scene.getRoot().applyCss();
+            scene.getRoot().layout();
+            SwipeCompareView swipe = controller.getSwipeView();
+            double w = swipe.getWidth();
+            double h = swipe.getHeight();
+            double[] img = SwipeCompareView.fit(1024, 1024, w - 16, h - 16);
+            double x = (w - img[0]) / 2 + img[0] * 0.25;
+            javafx.geometry.Point2D at = swipe.localToScene(x, h / 2);   // fired events carry scene coordinates
+            swipe.fireEvent(new MouseEvent(MouseEvent.MOUSE_PRESSED, at.getX(), at.getY(), 0, 0, MouseButton.PRIMARY, 1,
+                    false, false, false, false, true, false, false, true, false, false, null));
+            sb.append(String.format(Locale.ROOT, "; press at 25 %% -> divider %.3f", controller.getSwipePosition()));
+            swipe.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.RIGHT, false, false, false, false));
+            sb.append(String.format(Locale.ROOT, "; right arrow -> %.3f", controller.getSwipePosition()));
+            KeyCombination overlay = new KeyCodeCombination(KeyCode.DIGIT1, KeyCombination.SHORTCUT_DOWN);
+            scene.getAccelerators().get(overlay).run();
+            sb.append("; shortcut+1 -> compare=").append(controller.isCompareActive())
+                    .append(" view=").append(controller.getCurrentView().getDisplayName());
+            boolean dropped = controller.loadDroppedFiles(List.of(pair.toFile()), true);
+            sb.append("; drop ").append(pair.getFileName()).append(" -> loaded=").append(dropped);
+            return sb.toString();
+        });
+        System.out.println("[interaction] " + result);
+        // Re-analyse so the views below show the deep result for the re-loaded pair.
+        analyze(scene, controller, null);
+        System.out.println("[interaction] after re-analysis: per-image F1 = "
+                + String.format(Locale.ROOT, "%.4f", onFx(controller::getLastGroundTruthMetrics).f1()));
+    }
+
     private static void styled(Scene scene) {
         URL css = DashboardSnapshotTool.class.getResource("/com/landwatch/ui/css/dark_theme.css");
         scene.getStylesheets().add(css.toExternalForm());
@@ -260,26 +322,13 @@ public final class DashboardSnapshotTool {
         }
     }
 
-    /** Selects a view and scrolls so both result cards (change map + metrics) fill the viewport. */
+    /** Selects a view; inputs, result and measurements share the first screen, so the page stays at the top. */
     private static void selectAndScroll(Scene scene, DashboardController controller, ChangeView view) throws Exception {
         onFx(() -> {
             controller.selectView(view);
-            scrollToNode(scene, "#contentScrollPane", "#resultsGrid");
+            ((ScrollPane) scene.lookup("#contentScrollPane")).setVvalue(0);
             return null;
         });
-    }
-
-    /** Scrolls {@code scrollId} so that the top of {@code nodeId} (a child of its content) is at the top. */
-    private static void scrollToNode(Scene scene, String scrollId, String nodeId) {
-        ScrollPane sp = (ScrollPane) scene.lookup(scrollId);
-        Node target = scene.lookup(nodeId);
-        scene.getRoot().applyCss();
-        scene.getRoot().layout();
-        double scrollable = sp.getContent().getLayoutBounds().getHeight() - sp.getViewportBounds().getHeight();
-        if (scrollable > 0) {
-            double y = target.getBoundsInParent().getMinY() - 12;
-            sp.setVvalue(sp.getVmin() + Math.max(0, Math.min(1, y / scrollable)) * (sp.getVmax() - sp.getVmin()));
-        }
     }
 
     private static void scrollTop(Scene scene) throws Exception {

@@ -38,7 +38,7 @@ public final class LearningRulesDemo {
     }
 
     /**
-     * Runs {@link #main} and returns everything it printed, for the dashboard's NN Fundamentals page.
+     * Runs {@link #main} and returns everything it printed, for the dashboard's NN fundamentals page.
      * The demo itself is unchanged: {@code System.out} is redirected into a buffer for the duration of the
      * run and restored afterwards (calls are serialised, so two runs never interleave).
      */

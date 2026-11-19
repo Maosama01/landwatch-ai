@@ -42,7 +42,7 @@ Neural-network fundamentals (plain Java, no libraries):
 - **Classic learning rules.** Hebbian, Oja, competitive (winner-take-all), perceptron, LMS (Widrow–Hoff) and a small Boltzmann machine trained with Gibbs sampling.
 - **Deep change detection (DJL + PyTorch).** FC-Siam-diff with a shared encoder and |enc(A) − enc(B)| skip connections (1,348,785 trainable parameters), weighted BCE + soft Dice loss, D4 flip/rotation augmentation, train-only normalisation, a decision threshold tuned on val, and tiled inference with mirror padding for images of any size. Runs on CPU or the Apple-silicon GPU (MPS).
 - **Land-use classification (DJL).** A ResNet-18-style classifier trained on EuroSAT (10 classes, Sentinel-2 RGB), with a K×K confusion matrix and per-class metrics (`MulticlassMetrics`), training/evaluation/prediction CLIs and an inference API.
-- **JavaFX dashboard.** Choose between the classical baseline and the trained deep model (loaded in the background) and run either on the same pair. Views: binary mask, red overlay and thematic change map, plus ground truth and an error map (TP / FP / FN) when a real LEVIR-CD pair is loaded. Per-image F1 / IoU / precision / recall against ground truth, pixel statistics, an audit log and export of every run. Sidebar pages: Model Benchmarks (read from the result files at runtime), NN Fundamentals (runs XOR, the gradient check and the learning-rules demo live), Failure Analysis (the baseline's worst test images) and About / Runtime.
+- **JavaFX dashboard.** Inputs, result and measurements on one screen, with the finding of the last run stated under the title. Run the classical baseline or the trained deep model (loaded in the background and selected once ready) on the same pair. Views: overlay, mask and change map, plus the ground-truth label and an error map (TP / FP / FN) when a real LEVIR-CD pair is loaded, and a before/after swipe. Drag-and-drop loading, keyboard shortcuts, a full-size viewer and a light theme for projectors. Per-image F1 / IoU / precision / recall against ground truth, an activity log and export of every run. Sidebar pages: Failure analysis (the baseline's worst test images), Benchmarks (read from the result files at runtime), NN fundamentals (runs XOR, the gradient check and the learning-rules demo live) and About and runtime.
 
 ---
 
@@ -190,7 +190,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean test
 mvn clean test
 ```
 
-Expected result: **248 tests, 0 failures** (Java 17.0.21.1, Apple M3, with the LEVIR-CD patches present). By area: fundamentals 59, learning rules 44, classical baseline and visualisation 18, evaluation 29, LEVIR-CD deep learning 30, EuroSAT 19, dashboard 49.
+Expected result: **251 tests, 0 failures** (Java 17.0.21.1, Apple M3, with the LEVIR-CD patches present). By area: fundamentals 59, learning rules 44, classical baseline and visualisation 18, evaluation 29, LEVIR-CD deep learning 30, EuroSAT 19, dashboard 52.
 
 Tests that read real LEVIR-CD patches are skipped automatically (JUnit assumptions) when `datasets/LEVIR-CD/processed_256` is not present. The deep-learning tests need the PyTorch native library, which DJL downloads on the first run.
 
@@ -200,9 +200,13 @@ Tests that read real LEVIR-CD patches are skipped automatically (JUnit assumptio
 mvn javafx:run
 ```
 
-- **Real data:** click **Load LEVIR-CD Pair…** and pick any image in `datasets/LEVIR-CD/test/A` (or `B`/`label`). A, B and the ground-truth label load together. Choose an engine, click **Analyze Changes**, and switch to the **Ground Truth** and **Errors vs GT** views. The per-image F1 / IoU / precision / recall appear next to the engine's dataset benchmark. Switch engines and analyse again to compare the classical baseline and the deep model on the same pair.
-- **Demo:** **Load Demo Pair** loads the bundled pair (`src/main/resources/com/landwatch/sample_data/siteA_*.bmp`). It is a **synthetic, computer-generated 400×300 scene, not satellite imagery**, and has no ground truth.
-- **Your own images:** **Browse Before...** / **Browse After...** accept any co-registered pair of equal size (PNG, JPG, BMP or TIFF).
+Inputs, result and measurements share one screen; the line under the title states the finding of the last run.
+
+- **Real data:** click **Open LEVIR-CD pair…** (⌘O) and pick any image in `datasets/LEVIR-CD/test/A` (or `B`/`label`), or drop that file onto an image frame. A, B and the ground-truth label load together. The deep model is selected automatically once it has loaded; click **Analyze changes** (⌘↵) and switch to the **Label** and **Errors** views (⌘4, ⌘5). The per-image F1 / IoU / precision / recall appear next to the engine's whole-split result. Pick the other engine and analyse again to compare the classical baseline and the deep model on the same pair.
+- **Compare** (⌘6) shows a before/after swipe: drag the divider across the same place at the two dates. It works as soon as two images of equal size are loaded.
+- **Demo:** **Demo pair** (⌘D) loads the bundled pair (`src/main/resources/com/landwatch/sample_data/siteA_*.bmp`). It is a **synthetic, computer-generated 400×300 scene, not satellite imagery**, and has no ground truth.
+- **Your own images:** drop two images onto the frames (first by name = before), or use **Browse…** on each frame. Any co-registered pair of equal size works (PNG, JPG, BMP or TIFF).
+- **Full size** opens the current view at full resolution; **Light mode** in the sidebar suits a projector in a bright room.
 - Options: `mvn javafx:run -Dlandwatch.model.dir=<dir> -Dlandwatch.deeplearning.device=cpu|mps|auto -Dlandwatch.dataset.dir=<LEVIR-CD dir>`.
 
 ### Classical baseline benchmark (needs the full-resolution LEVIR-CD images)
@@ -381,11 +385,15 @@ All screenshots are rendered from the real application by `DashboardSnapshotTool
 
 ![Classical baseline errors view](results/ui_snapshots/07_levir_test_7_classical_errors.png)
 
-**Model Benchmarks page.** Every value is read from `results/` at runtime.
+**Before/after swipe on the same pair.** Drag the divider to compare the two dates at the same place.
 
-![Model benchmarks page](results/ui_snapshots/08_page_model_benchmarks.png)
+![Before/after swipe](results/ui_snapshots/02_levir_test_7_compare_before_after.png)
 
-More views: [red overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png), [ground truth](results/ui_snapshots/04_levir_test_7_deep_ground_truth.png), [synthetic demo pair](results/ui_snapshots/01_demo_synthetic_classical_overlay.png), [NN fundamentals](results/ui_snapshots/11_page_nn_fundamentals_learning_rules.png), [failure analysis](results/ui_snapshots/12_page_failure_analysis.png), [about / runtime](results/ui_snapshots/13_page_about_runtime.png).
+**Benchmarks page.** Every value is read from `results/` at runtime.
+
+![Benchmarks page](results/ui_snapshots/08_page_model_benchmarks.png)
+
+More views: [overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png), [ground truth](results/ui_snapshots/04_levir_test_7_deep_ground_truth.png), [synthetic demo pair](results/ui_snapshots/01_demo_synthetic_classical_overlay.png), [light theme](results/ui_snapshots/16_light_theme_levir_test_7_deep_errors.png), [empty start screen](results/ui_snapshots/00_startup_model_loading.png), [NN fundamentals](results/ui_snapshots/11_page_nn_fundamentals_learning_rules.png), [failure analysis](results/ui_snapshots/12_page_failure_analysis.png), [about and runtime](results/ui_snapshots/13_page_about_runtime.png).
 
 ---
 

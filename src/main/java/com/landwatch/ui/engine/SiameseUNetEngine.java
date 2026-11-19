@@ -198,7 +198,7 @@ public final class SiameseUNetEngine implements ChangeDetectionEngine, AutoClose
 
     @Override public String getId() { return ID; }
     @Override public String getDisplayName() { return DISPLAY_NAME; }
-    @Override public String getShortLabel() { return "DEEP · FC-SIAM-DIFF"; }
+    @Override public String getShortLabel() { return "FC-Siam-diff"; }
 
     /** True only once a trained model has been loaded successfully. */
     @Override public boolean isAvailable() { return state == State.READY; }

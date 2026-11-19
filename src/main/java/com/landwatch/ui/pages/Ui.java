@@ -12,7 +12,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
-/** Small builders so the secondary pages use the same dark-theme classes as dashboard.fxml. */
+/** Small builders so the secondary pages use the same theme classes as dashboard.fxml. */
 final class Ui {
 
     private Ui() {
@@ -27,42 +27,44 @@ final class Ui {
         return scroll;
     }
 
-    static VBox pageContent(String title, String subtitle, String badge) {
-        VBox content = new VBox(18);
+    /**
+     * Page column with the dashboard's gutters: a noun title, one grey sentence about the data and, on the
+     * right, an optional grey note on the scope (never a coloured badge).
+     */
+    static VBox pageContent(String title, String subtitle, String meta) {
+        VBox content = new VBox(14);
         content.getStyleClass().add("main-content");
-        content.setPadding(new Insets(22, 28, 24, 28));
+        content.setPadding(new Insets(20, 24, 24, 24));
 
         Label t = label(title, "page-title");
         Label s = label(subtitle, "page-subtitle");
         VBox titles = new VBox(3, t, s);
         HBox.setHgrow(titles, Priority.ALWAYS);
         HBox header = new HBox(12, titles);
-        header.setAlignment(Pos.CENTER_LEFT);
-        if (badge != null) {
-            Label b = new Label(badge);
-            b.getStyleClass().add("badge-academic");
-            b.setMinWidth(Region.USE_PREF_SIZE);
-            header.getChildren().add(b);
+        header.setAlignment(Pos.TOP_LEFT);
+        if (meta != null) {
+            Label m = fixed(meta, "page-meta");
+            m.setPadding(new Insets(4, 0, 0, 0));
+            header.getChildren().add(m);
         }
         content.getChildren().add(header);
         return content;
     }
 
-    /** A card with a section title and an optional badge on the right. */
-    static VBox card(String title, String badge, String badgeStyle) {
-        VBox card = new VBox(10);
+    /**
+     * A card with a sentence-case title and, optionally, a grey note on its scope right after it.
+     * {@code ignoredStyle} is kept for source compatibility: cards no longer carry coloured badges.
+     */
+    static VBox card(String title, String meta, String ignoredStyle) {
+        VBox card = new VBox(12);
         card.getStyleClass().add("card");
-        card.setPadding(new Insets(16));
+        card.setPadding(new Insets(16, 18, 18, 18));
         Label t = label(title, "card-section-title");
-        t.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(t, Priority.ALWAYS);
         HBox head = new HBox(8, t);
-        head.setAlignment(Pos.CENTER_LEFT);
-        if (badge != null) {
-            Label b = new Label(badge);
-            b.getStyleClass().add(badgeStyle);
-            b.setMinWidth(Region.USE_PREF_SIZE);
-            head.getChildren().add(b);
+        head.setAlignment(Pos.BASELINE_LEFT);
+        if (meta != null) {
+            Label m = label(meta, "card-meta");
+            head.getChildren().add(m);
         }
         card.getChildren().add(head);
         return card;
@@ -89,7 +91,7 @@ final class Ui {
     static VBox bullets(String... items) {
         VBox box = new VBox(6);
         for (String item : items) {
-            Label dot = fixed("•", "note-bullet");
+            Label dot = fixed("·", "note-bullet");
             Label text = label(item, "page-note");
             text.setMaxWidth(Double.MAX_VALUE);
             HBox.setHgrow(text, Priority.ALWAYS);

@@ -29,7 +29,7 @@ public final class ClassicalBaselineEngine implements ChangeDetectionEngine {
 
     @Override public String getId() { return ID; }
     @Override public String getDisplayName() { return DISPLAY_NAME; }
-    @Override public String getShortLabel() { return "BASELINE · OTSU"; }
+    @Override public String getShortLabel() { return "Otsu baseline"; }
     @Override public boolean isAvailable() { return true; }
 
     @Override

@@ -30,7 +30,7 @@ public final class AppPaths {
         return fromProperty(RESULTS_DIR_PROPERTY, DEFAULT_RESULTS_DIR);
     }
 
-    /** {@code <dataset>/test/A} if it exists (initial folder of the "Load LEVIR-CD Pair" chooser), else null. */
+    /** {@code <dataset>/test/A} if it exists (initial folder of the "Open LEVIR-CD pair…" chooser), else null. */
     public static Path levirChooserStartDir() {
         Path testA = levirDatasetDir().resolve("test").resolve("A");
         return Files.isDirectory(testA) ? testA : null;

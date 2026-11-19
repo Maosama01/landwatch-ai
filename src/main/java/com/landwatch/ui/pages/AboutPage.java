@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 /**
- * "About / Runtime" page: what is actually running (Java, JavaFX, DJL engine and device), where the model
+ * "About and runtime" page: what is actually running (Java, JavaFX, DJL engine and device), where the model
  * and data are expected and whether they were found. Everything is read live when the page is shown.
  */
 public final class AboutPage {
@@ -32,16 +32,16 @@ public final class AboutPage {
 
     public AboutPage(SiameseUNetEngine deepEngine) {
         this.deepEngine = deepEngine;
-        VBox content = Ui.pageContent("About / Runtime",
+        VBox content = Ui.pageContent("About and runtime",
                 "LANDWATCH AI · Problem Statement 50: satellite land-use change and encroachment detection. "
                         + "This page reports the live runtime configuration; nothing here is configured from the UI.",
-                "Academic DL PBL");
+                "academic deep-learning project");
 
-        VBox runtimeCard = Ui.card("RUNTIME", null, null);
+        VBox runtimeCard = Ui.card("Runtime", null, null);
         runtimeCard.getChildren().add(runtimeGrid);
-        VBox modelCard = Ui.card("DEEP MODEL", null, null);
+        VBox modelCard = Ui.card("Deep model", null, null);
         modelCard.getChildren().addAll(modelGrid, modelDescription);
-        VBox dataCard = Ui.card("DATASET & RESULTS FILES", null, null);
+        VBox dataCard = Ui.card("Dataset and result files", null, null);
         dataCard.getChildren().add(dataGrid);
 
         content.getChildren().addAll(modelCard, runtimeCard, dataCard);

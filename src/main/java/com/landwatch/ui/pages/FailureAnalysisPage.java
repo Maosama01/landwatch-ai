@@ -38,18 +38,18 @@ public final class FailureAnalysisPage {
     /** @param openPair called with {@code <dataset>/test/A/<image>} when the user opens a pair */
     public FailureAnalysisPage(Consumer<Path> openPair) {
         this.openPair = openPair;
-        VBox content = Ui.pageContent("Failure Analysis",
+        VBox content = Ui.pageContent("Failure analysis",
                 "Where change detection goes wrong, and why. Per-image numbers come from the classical baseline's "
                         + "benchmark CSV, read at runtime; open any pair to compare both engines on it.",
                 null);
 
-        VBox worstCard = Ui.card("CLASSICAL BASELINE · WORST LEVIR-CD TEST IMAGES BY F1", "PER IMAGE", "badge-warning");
+        VBox worstCard = Ui.card("Classical baseline: the worst LEVIR-CD test images by F1", "per image", null);
         table.getStyleClass().add("bench-table");
         worstCard.getChildren().addAll(summary, table);
 
-        VBox limitsCard = Ui.card("KNOWN LIMITATIONS", null, null);
+        VBox limitsCard = Ui.card("Known limitations", null, null);
         limitsCard.getChildren().add(Ui.bullets(
-                "Illumination, season and sun angle: pixel differencing flags ANY brightness difference (shadows, "
+                "Illumination, season and sun angle: pixel differencing flags any brightness difference (shadows, "
                         + "vegetation cycles, haze), so it raises false alarms wherever brightness changed without a real "
                         + "change. The deep model was trained on labelled pairs that contain such differences, which makes it "
                         + "less sensitive to them (compare both engines on the same pair), but not immune.",

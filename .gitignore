@@ -40,3 +40,6 @@ __pycache__/
 
 # Claude Code agent worktrees and local settings
 .claude/
+
+# design-skill working files
+.taste-skill/

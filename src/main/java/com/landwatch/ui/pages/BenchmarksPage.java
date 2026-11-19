@@ -23,7 +23,7 @@ import java.util.Locale;
 import java.util.OptionalDouble;
 
 /**
- * "Model Benchmarks" page: dataset-level LEVIR-CD metrics of the classical baseline and the deep model,
+ * "Benchmarks" page: dataset-level LEVIR-CD metrics of the classical baseline and the deep model,
  * plus EuroSAT classification, every value parsed at runtime from the results files. A missing file is
  * shown as "not available"; nothing is hard-coded.
  */
@@ -42,22 +42,22 @@ public final class BenchmarksPage {
     public BenchmarksPage(SiameseUNetEngine deepEngine) {
         this.deepEngine = deepEngine;
 
-        VBox content = Ui.pageContent("Model Benchmarks",
+        VBox content = Ui.pageContent("Benchmarks",
                 "Dataset-level results over every pixel of a LEVIR-CD split, read at runtime from the results/ folder. "
-                        + "These are DATASET benchmarks; the per-image numbers for one pair are on the Change Detection page.",
-                "DATASET BENCHMARKS");
+                        + "These are dataset benchmarks; the per-image numbers for one pair are on the Change detection page.",
+                "whole splits, read from results/");
 
-        VBox levirCard = Ui.card("LEVIR-CD BUILDING CHANGE DETECTION · PIXEL METRICS OF THE CHANGE CLASS",
-                "ALL IMAGES OF A SPLIT", "badge-info");
+        VBox levirCard = Ui.card("LEVIR-CD building change detection: pixel metrics of the change class",
+                "all images of a split", null);
         table.getStyleClass().add("bench-table");
         table.setHgap(0);
         table.setVgap(0);
         levirCard.getChildren().addAll(table, loadedModelLabel);
 
-        VBox euroCard = Ui.card("EUROSAT LAND-COVER CLASSIFICATION · SEPARATE TASK", "TEST SPLIT", "badge-info");
+        VBox euroCard = Ui.card("EuroSAT land-cover classification, a separate task", "test split", null);
         euroCard.getChildren().add(euroSatBox);
 
-        VBox notesCard = Ui.card("HOW TO READ THESE NUMBERS", null, null);
+        VBox notesCard = Ui.card("How to read these numbers", null, null);
         notesCard.getChildren().add(notesBox);
 
         content.getChildren().addAll(levirCard, euroCard, notesCard);
@@ -166,8 +166,8 @@ public final class BenchmarksPage {
         euroSatBox.getChildren().clear();
         if (euro.isOk()) {
             HBox tiles = new HBox(10,
-                    tile("OVERALL ACCURACY", euro.format(Metric.OVERALL_ACCURACY)),
-                    tile("MACRO F1", euro.format(Metric.MACRO_F1)));
+                    tile("Overall accuracy", euro.format(Metric.OVERALL_ACCURACY)),
+                    tile("Macro F1", euro.format(Metric.MACRO_F1)));
             euroSatBox.getChildren().add(tiles);
         } else {
             euroSatBox.getChildren().add(Ui.label(euro.getStatus() == MetricsReport.Status.MISSING

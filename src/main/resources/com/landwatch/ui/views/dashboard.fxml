@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.Group?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.ScrollPane?>
-<?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.ToggleButton?>
 <?import javafx.scene.control.ToggleGroup?>
@@ -17,12 +17,18 @@
 <?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.SVGPath?>
 
+<!--
+  LandWatch AI dashboard. Shell: a 224px sidebar on the page ground, divided by one 1px rule.
+  Change detection answers one question first, "what changed between the two dates, where and how
+  much?", so inputs, the result and its measurements share the first screen:
+  inputs (23 %) | result (48 %) | measurements (29 %), one 14px gap everywhere.
+-->
 <BorderPane prefHeight="840.0" prefWidth="1280.0" styleClass="root-pane"
             xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.landwatch.ui.controllers.DashboardController">
@@ -31,340 +37,333 @@
         <ToggleGroup fx:id="viewModeGroup" />
     </fx:define>
 
-    <!-- LEFT NAVIGATION SIDEBAR -->
+    <!-- SIDEBAR -->
     <left>
-        <VBox prefWidth="260.0" minWidth="260.0" spacing="15.0" styleClass="sidebar">
+        <VBox maxWidth="224.0" minWidth="224.0" prefWidth="224.0" spacing="2.0" styleClass="sidebar">
             <padding>
-                <Insets bottom="20.0" left="20.0" right="20.0" top="24.0" />
+                <Insets bottom="16.0" left="12.0" right="12.0" top="20.0" />
             </padding>
 
-            <!-- Brand Header -->
-            <VBox spacing="4.0">
-                <HBox alignment="CENTER_LEFT" spacing="8.0">
-                    <Label styleClass="brand-logo" text="🌍" />
-                    <Label styleClass="brand-title" text="LANDWATCH AI" />
-                </HBox>
-                <Label styleClass="brand-subtitle" text="Satellite Change &amp; Encroachment" wrapText="true" />
-                <Label styleClass="brand-tag" text="Project 50 • Geospatial Intel" />
-            </VBox>
-
-            <Separator styleClass="sidebar-divider" />
-
-            <!-- Navigation Links -->
-            <VBox spacing="8.0" VBox.vgrow="ALWAYS">
-                <Button fx:id="navAnalysisButton" maxWidth="Infinity" onAction="#handleNavAnalysis" styleClass="nav-button, nav-button-active" text="🛰️  Change Detection" />
-                <Button fx:id="navBenchmarksButton" maxWidth="Infinity" onAction="#handleNavBenchmarks" styleClass="nav-button" text="📈  Model Benchmarks" />
-                <Button fx:id="navFundamentalsButton" maxWidth="Infinity" onAction="#handleNavFundamentals" styleClass="nav-button" text="🧠  NN Fundamentals" />
-                <Button fx:id="navFailureButton" maxWidth="Infinity" onAction="#handleNavFailure" styleClass="nav-button" text="⚠️  Failure Analysis" />
-                <Button fx:id="navAboutButton" maxWidth="Infinity" onAction="#handleNavAbout" styleClass="nav-button" text="ℹ️  About / Runtime" />
-            </VBox>
-
-            <!-- Sidebar Footer Status -->
-            <VBox spacing="8.0" styleClass="status-card">
+            <!-- Product mark: two offset frames, the before and the after image -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
                 <padding>
-                    <Insets bottom="12.0" left="12.0" right="12.0" top="12.0" />
+                    <Insets bottom="8.0" left="8.0" />
                 </padding>
-                <Label styleClass="status-title" text="SYSTEM TELEMETRY" />
-                <Label fx:id="systemStatusLabel" styleClass="status-item" text="System: Standby" wrapText="true" />
-                <Label fx:id="engineModeLabel" styleClass="status-item" text="Engine: Classical baseline" wrapText="true" />
-                <Label styleClass="status-item-faint" text="Demonstration: Nov 2026" />
+                <Group>
+                    <SVGPath content="M1 1h13v13H1z" styleClass="brand-mark-back" />
+                    <SVGPath content="M7 7h13v13H7z" styleClass="brand-mark-front" />
+                </Group>
+                <VBox spacing="1.0">
+                    <Label styleClass="brand-title" text="LandWatch AI" />
+                    <Label styleClass="brand-subtitle" text="Project 50 · satellite change" />
+                </VBox>
+            </HBox>
+
+            <Label styleClass="nav-group-label" text="Workspace" />
+            <Button fx:id="navAnalysisButton" maxWidth="Infinity" onAction="#handleNavAnalysis" styleClass="nav-button, nav-button-active" text="Change detection">
+                <graphic>
+                    <StackPane minWidth="16.0" prefWidth="16.0"><SVGPath content="M2 2h8v8H2z M6 6h8v8H6z" styleClass="nav-icon" /></StackPane>
+                </graphic>
+            </Button>
+            <Button fx:id="navFailureButton" maxWidth="Infinity" onAction="#handleNavFailure" styleClass="nav-button" text="Failure analysis">
+                <graphic>
+                    <StackPane minWidth="16.0" prefWidth="16.0"><SVGPath content="M8 2.2L14.2 13.3H1.8Z M8 6.5v3 M8 11.4v0.1" styleClass="nav-icon" /></StackPane>
+                </graphic>
+            </Button>
+
+            <Label styleClass="nav-group-label" text="Results" />
+            <Button fx:id="navBenchmarksButton" maxWidth="Infinity" onAction="#handleNavBenchmarks" styleClass="nav-button" text="Benchmarks">
+                <graphic>
+                    <StackPane minWidth="16.0" prefWidth="16.0"><SVGPath content="M2.5 13.5h11 M4.5 11V7.5 M8 11V3.5 M11.5 11V6" styleClass="nav-icon" /></StackPane>
+                </graphic>
+            </Button>
+            <Button fx:id="navFundamentalsButton" maxWidth="Infinity" onAction="#handleNavFundamentals" styleClass="nav-button" text="NN fundamentals">
+                <graphic>
+                    <StackPane minWidth="16.0" prefWidth="16.0"><SVGPath content="M2 8a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0 M11 3.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0 M11 12.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0 M4.9 7.3L11.1 4.2 M4.9 8.7L11.1 11.8" styleClass="nav-icon" /></StackPane>
+                </graphic>
+            </Button>
+
+            <Region VBox.vgrow="ALWAYS" />
+
+            <Button fx:id="navAboutButton" maxWidth="Infinity" onAction="#handleNavAbout" styleClass="nav-button" text="About and runtime">
+                <graphic>
+                    <StackPane minWidth="16.0" prefWidth="16.0"><SVGPath content="M1.5 8a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0 -13 0 M8 7.3v4 M8 4.8v0.1" styleClass="nav-icon" /></StackPane>
+                </graphic>
+            </Button>
+
+            <!-- Live status: the deep model and the workspace -->
+            <VBox spacing="6.0">
+                <padding>
+                    <Insets left="10.0" right="6.0" top="12.0" />
+                </padding>
+                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                    <Region fx:id="modelStatusDot" styleClass="status-dot" />
+                    <Label fx:id="modelStatusLabel" styleClass="status-line" text="Deep model loading…" wrapText="true" />
+                </HBox>
+                <Label fx:id="systemStatusLabel" styleClass="status-item" text="Load an image pair to begin" wrapText="true" />
+                <HBox>
+                    <padding>
+                        <Insets top="6.0" />
+                    </padding>
+                    <Button fx:id="themeToggleButton" onAction="#handleToggleTheme" styleClass="theme-toggle" text="Light mode">
+                        <tooltip>
+                            <Tooltip text="Switch between the dark and the light theme (light suits a projector in a bright room)" wrapText="true" maxWidth="280.0" />
+                        </tooltip>
+                    </Button>
+                </HBox>
             </VBox>
         </VBox>
     </left>
 
-    <!-- CENTER MAIN CONTENT -->
+    <!-- PAGES -->
     <center>
       <StackPane fx:id="pageStack">
         <ScrollPane fx:id="contentScrollPane" fitToWidth="true" hbarPolicy="NEVER" styleClass="content-scroll-pane">
-            <VBox spacing="18.0" styleClass="main-content">
+            <VBox spacing="14.0" styleClass="main-content">
                 <padding>
-                    <Insets bottom="24.0" left="28.0" right="28.0" top="22.0" />
+                    <Insets bottom="24.0" left="24.0" right="24.0" top="20.0" />
                 </padding>
 
-                <!-- Page Header Bar -->
-                <HBox alignment="CENTER_LEFT" spacing="12.0">
-                    <VBox spacing="3.0" HBox.hgrow="ALWAYS">
-                        <Label styleClass="page-title" text="Multitemporal Satellite Change Analysis" wrapText="true" />
-                        <Label styleClass="page-subtitle" wrapText="true"
-                               text="Compare a co-registered before/after image pair of the same site and map pixel-level change, such as new construction or cleared land." />
+                <!-- Title row: the screen's name, the finding, and the actions -->
+                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                    <VBox minWidth="0.0" spacing="3.0" HBox.hgrow="ALWAYS">
+                        <Label styleClass="page-title" text="Change detection" />
+                        <Label fx:id="resultSummaryLabel" styleClass="page-subtitle" wrapText="true"
+                               text="Compare two images of the same site taken on different dates." />
                     </VBox>
-                    <Label minWidth="-Infinity" styleClass="badge-academic" text="Academic DL PBL" />
+                    <Button fx:id="loadDemoButton" minWidth="-Infinity" onAction="#handleLoadDemoPair" styleClass="btn-secondary" text="Demo pair" />
+                    <Button fx:id="loadLevirButton" minWidth="-Infinity" onAction="#handleLoadLevirPair" styleClass="btn-secondary" text="Open LEVIR-CD pair…" />
+                    <Button fx:id="resetButton" minWidth="-Infinity" onAction="#handleReset" styleClass="btn-text" text="Reset" />
+                    <Button fx:id="analyzeButton" disable="true" minWidth="-Infinity" onAction="#handleAnalyzeChanges" styleClass="btn-primary" text="Analyze changes" />
                 </HBox>
 
-                <!-- DUAL SATELLITE IMAGE COMPARISON SECTION -->
-                <GridPane hgap="20.0" vgap="10.0">
-                    <columnConstraints>
-                        <ColumnConstraints percentWidth="50.0" />
-                        <ColumnConstraints percentWidth="50.0" />
-                    </columnConstraints>
-
-                    <!-- BEFORE (Date 1) Card -->
-                    <VBox spacing="10.0" styleClass="card" GridPane.columnIndex="0">
-                        <padding>
-                            <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
-                        </padding>
-
-                        <HBox alignment="CENTER_LEFT" spacing="8.0">
-                            <Label maxWidth="Infinity" styleClass="card-section-title" text="DATE 1: PRE-EVENT BASELINE" HBox.hgrow="ALWAYS" />
-                            <Label minWidth="-Infinity" styleClass="badge-info" text="BEFORE" />
-                        </HBox>
-
-                        <StackPane fx:id="beforeImageContainer" minHeight="260.0" minWidth="0.0" prefHeight="260.0" styleClass="image-container">
-                            <VBox fx:id="beforePlaceholder" alignment="CENTER" spacing="8.0">
-                                <Label styleClass="upload-icon" text="📂" />
-                                <Label styleClass="placeholder-text" text="No Before Image Selected" />
-                                <Label styleClass="placeholder-subtext" text="Supports PNG, JPG, BMP, TIFF" />
-                            </VBox>
-                            <ImageView fx:id="beforeImageView" fitHeight="250.0" fitWidth="460.0" preserveRatio="true" smooth="true" visible="false" />
-                        </StackPane>
-
-                        <HBox alignment="CENTER_LEFT" spacing="10.0">
-                            <VBox minWidth="0.0" spacing="2.0" HBox.hgrow="ALWAYS">
-                                <Label fx:id="beforeFilenameLabel" styleClass="file-label" text="No file selected" wrapText="true" />
-                                <Label fx:id="beforeDimensionLabel" styleClass="file-sublabel" text="Resolution: -- x -- px" wrapText="true" />
-                            </VBox>
-                            <Button fx:id="uploadBeforeButton" minWidth="-Infinity" onAction="#handleUploadBefore" styleClass="btn-secondary" text="Browse Before..." />
-                        </HBox>
-                    </VBox>
-
-                    <!-- AFTER (Date 2) Card -->
-                    <VBox spacing="10.0" styleClass="card" GridPane.columnIndex="1">
-                        <padding>
-                            <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
-                        </padding>
-
-                        <HBox alignment="CENTER_LEFT" spacing="8.0">
-                            <Label maxWidth="Infinity" styleClass="card-section-title" text="DATE 2: POST-EVENT CURRENT" HBox.hgrow="ALWAYS" />
-                            <Label minWidth="-Infinity" styleClass="badge-warning" text="AFTER" />
-                        </HBox>
-
-                        <StackPane fx:id="afterImageContainer" minHeight="260.0" minWidth="0.0" prefHeight="260.0" styleClass="image-container">
-                            <VBox fx:id="afterPlaceholder" alignment="CENTER" spacing="8.0">
-                                <Label styleClass="upload-icon" text="📂" />
-                                <Label styleClass="placeholder-text" text="No After Image Selected" />
-                                <Label styleClass="placeholder-subtext" text="Supports PNG, JPG, BMP, TIFF" />
-                            </VBox>
-                            <ImageView fx:id="afterImageView" fitHeight="250.0" fitWidth="460.0" preserveRatio="true" smooth="true" visible="false" />
-                        </StackPane>
-
-                        <HBox alignment="CENTER_LEFT" spacing="10.0">
-                            <VBox minWidth="0.0" spacing="2.0" HBox.hgrow="ALWAYS">
-                                <Label fx:id="afterFilenameLabel" styleClass="file-label" text="No file selected" wrapText="true" />
-                                <Label fx:id="afterDimensionLabel" styleClass="file-sublabel" text="Resolution: -- x -- px" wrapText="true" />
-                            </VBox>
-                            <Button fx:id="uploadAfterButton" minWidth="-Infinity" onAction="#handleUploadAfter" styleClass="btn-secondary" text="Browse After..." />
-                        </HBox>
-                    </VBox>
-               <rowConstraints>
-                  <RowConstraints />
-               </rowConstraints>
-                </GridPane>
-
-                <!-- ACTION CONTROLS BAR: engine selector + actions -->
-                <VBox fx:id="actionBar" spacing="12.0" styleClass="action-bar">
-                    <padding>
-                        <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />
-                    </padding>
+                <!-- Engine row -->
+                <VBox fx:id="actionBar" styleClass="action-bar">
                     <HBox alignment="CENTER_LEFT" spacing="10.0">
-                        <Label minWidth="-Infinity" styleClass="control-label" text="Detection engine" />
-                        <ComboBox fx:id="engineComboBox" minWidth="-Infinity" prefWidth="300.0" styleClass="engine-combo" />
+                        <Label minWidth="-Infinity" styleClass="control-label" text="Engine" />
+                        <ComboBox fx:id="engineComboBox" minWidth="-Infinity" prefWidth="290.0" styleClass="engine-combo" />
                         <Label fx:id="engineNoteLabel" maxWidth="Infinity" minWidth="0.0" styleClass="engine-note" text="" wrapText="true" HBox.hgrow="ALWAYS" />
-                    </HBox>
-                    <HBox alignment="CENTER_LEFT" spacing="14.0">
-                        <Button fx:id="analyzeButton" disable="true" minWidth="-Infinity" onAction="#handleAnalyzeChanges" styleClass="btn-primary" text="⚡  Analyze Changes" />
-                        <Button fx:id="loadDemoButton" minWidth="-Infinity" onAction="#handleLoadDemoPair" styleClass="btn-secondary" text="🌟  Load Demo Pair" />
-                        <Button fx:id="loadLevirButton" minWidth="-Infinity" onAction="#handleLoadLevirPair" styleClass="btn-secondary" text="🛰️  Load LEVIR-CD Pair…">
-                            <tooltip>
-                                <Tooltip text="Pick an image in a LEVIR-CD split's A/ or B/ folder: the matching A, B and label/ files (same file name) are loaded, so results can be compared with the ground truth." wrapText="true" maxWidth="340.0" />
-                            </tooltip>
-                        </Button>
-                        <Button fx:id="resetButton" minWidth="-Infinity" onAction="#handleReset" styleClass="btn-outline" text="🔄  Reset Inputs" />
-                        <ProgressBar fx:id="analysisProgressBar" maxWidth="Infinity" progress="-1.0" visible="false" HBox.hgrow="ALWAYS" />
                     </HBox>
                 </VBox>
 
-                <!-- RESULTS & CHANGE-MAP DISPLAY -->
-                <GridPane fx:id="resultsGrid" hgap="18.0" vgap="10.0">
+                <!-- Workspace -->
+                <GridPane fx:id="resultsGrid" hgap="14.0" vgap="14.0">
                     <columnConstraints>
-                        <ColumnConstraints percentWidth="58.0" />
-                        <ColumnConstraints percentWidth="42.0" />
+                        <ColumnConstraints percentWidth="23.0" />
+                        <ColumnConstraints percentWidth="48.0" />
+                        <ColumnConstraints percentWidth="29.0" />
                     </columnConstraints>
+                    <rowConstraints>
+                        <RowConstraints fx:id="workspaceRow" fillHeight="true" valignment="TOP" vgrow="NEVER" />
+                    </rowConstraints>
 
-                    <!-- Change Map Card -->
-                    <VBox spacing="10.0" styleClass="card" GridPane.columnIndex="0">
-                        <padding>
-                            <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
-                        </padding>
-
-                        <!-- Row 1: title + engine badge -->
-                        <HBox alignment="CENTER_LEFT" spacing="8.0">
-                            <Label maxWidth="Infinity" styleClass="card-section-title" text="VISUAL CHANGE MAP" wrapText="true" HBox.hgrow="ALWAYS" />
-                            <Label fx:id="resultEngineBadge" minWidth="-Infinity" styleClass="badge-accent" text="NO RESULT YET" />
-                        </HBox>
-
-                        <!-- Row 2: view-mode toggles (own row so labels never truncate) -->
-                        <HBox alignment="CENTER_LEFT" spacing="6.0">
-                            <Label minWidth="42.0" prefWidth="42.0" styleClass="control-label-small" text="View:" />
-                            <ToggleButton fx:id="modeMaskToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Binary Mask" toggleGroup="$viewModeGroup" userData="BINARY_MASK" />
-                            <ToggleButton fx:id="modeOverlayToggle" disable="true" minWidth="-Infinity" selected="true" styleClass="mode-toggle" text="Red Overlay" toggleGroup="$viewModeGroup" userData="RED_OVERLAY" />
-                            <ToggleButton fx:id="modeChangeMapToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Change Map" toggleGroup="$viewModeGroup" userData="CHANGE_MAP" />
-                        </HBox>
-
-                        <!-- Row 3: views that need a ground-truth label (LEVIR-CD pairs only) -->
-                        <HBox alignment="CENTER_LEFT" spacing="6.0">
-                            <Label minWidth="42.0" prefWidth="42.0" styleClass="control-label-small" text="Label:" />
-                            <ToggleButton fx:id="modeGroundTruthToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Ground Truth" toggleGroup="$viewModeGroup" userData="GROUND_TRUTH" />
-                            <ToggleButton fx:id="modeErrorsToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Errors vs GT" toggleGroup="$viewModeGroup" userData="ERRORS" />
-                            <Label fx:id="gtViewNote" maxWidth="Infinity" minWidth="0.0" styleClass="control-label-small" text="" wrapText="true" HBox.hgrow="ALWAYS" />
-                        </HBox>
-
-                        <StackPane fx:id="changeMapContainer" minHeight="250.0" minWidth="0.0" prefHeight="250.0" styleClass="image-container" VBox.vgrow="ALWAYS">
-                            <VBox fx:id="changeMapPlaceholder" alignment="CENTER" spacing="8.0">
-                                <padding>
-                                    <Insets left="12.0" right="12.0" />
-                                </padding>
-                                <Label styleClass="upload-icon" text="🗺️" />
-                                <Label fx:id="changeMapStatusLabel" styleClass="placeholder-text" text="Awaiting analysis: load a before/after pair and click 'Analyze Changes'" textAlignment="CENTER" wrapText="true" />
-                            </VBox>
-                            <ImageView fx:id="changeMapImageView" fitHeight="240.0" fitWidth="540.0" preserveRatio="true" smooth="true" visible="false" />
-                        </StackPane>
-
-                        <!-- Legend for the current mode -->
-                        <VBox spacing="6.0" styleClass="legend-box">
+                    <!-- Inputs: before over after -->
+                    <VBox maxHeight="Infinity" spacing="14.0" GridPane.columnIndex="0">
+                        <VBox maxHeight="Infinity" spacing="10.0" styleClass="card" VBox.vgrow="ALWAYS">
                             <padding>
-                                <Insets bottom="8.0" left="10.0" right="10.0" top="8.0" />
+                                <Insets bottom="14.0" left="14.0" right="14.0" top="14.0" />
                             </padding>
-                            <HBox alignment="CENTER_LEFT" spacing="8.0">
-                                <Label minWidth="-Infinity" styleClass="legend-title" text="LEGEND" />
-                                <Label fx:id="legendModeLabel" minWidth="-Infinity" styleClass="legend-mode" text="Red Overlay" />
+                            <HBox alignment="CENTER_LEFT" spacing="6.0">
+                                <Label minWidth="-Infinity" styleClass="card-section-title" text="Before" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button fx:id="uploadBeforeButton" minWidth="-Infinity" onAction="#handleUploadBefore" styleClass="btn-text" text="Browse…" />
                             </HBox>
-                            <FlowPane fx:id="legendPane" hgap="16.0" vgap="6.0" />
-                            <Label fx:id="legendCaption" styleClass="legend-caption" text="" wrapText="true" />
+                            <StackPane fx:id="beforeImageContainer" minHeight="140.0" minWidth="0.0" prefHeight="186.0" styleClass="image-container, drop-target" VBox.vgrow="ALWAYS">
+                                <VBox fx:id="beforePlaceholder" alignment="CENTER" spacing="6.0">
+                                    <SVGPath content="M10 3v9 M6 8l4 4 4-4 M3 13v4h14v-4" styleClass="upload-icon" />
+                                    <Label styleClass="placeholder-text" text="Drop the earlier image" />
+                                    <Label styleClass="placeholder-subtext" text="or click to browse" />
+                                </VBox>
+                                <ImageView fx:id="beforeImageView" fitHeight="170.0" fitWidth="220.0" preserveRatio="true" smooth="true" visible="false" />
+                            </StackPane>
+                            <VBox spacing="1.0">
+                                <Label fx:id="beforeFilenameLabel" minHeight="-Infinity" styleClass="file-label" text="No image yet" wrapText="true" />
+                                <Label fx:id="beforeDimensionLabel" minHeight="-Infinity" styleClass="file-sublabel" text="PNG, JPG, BMP or TIFF" wrapText="true" />
+                            </VBox>
+                        </VBox>
+
+                        <VBox maxHeight="Infinity" spacing="10.0" styleClass="card" VBox.vgrow="ALWAYS">
+                            <padding>
+                                <Insets bottom="14.0" left="14.0" right="14.0" top="14.0" />
+                            </padding>
+                            <HBox alignment="CENTER_LEFT" spacing="6.0">
+                                <Label minWidth="-Infinity" styleClass="card-section-title" text="After" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button fx:id="uploadAfterButton" minWidth="-Infinity" onAction="#handleUploadAfter" styleClass="btn-text" text="Browse…" />
+                            </HBox>
+                            <StackPane fx:id="afterImageContainer" minHeight="140.0" minWidth="0.0" prefHeight="186.0" styleClass="image-container, drop-target" VBox.vgrow="ALWAYS">
+                                <VBox fx:id="afterPlaceholder" alignment="CENTER" spacing="6.0">
+                                    <SVGPath content="M10 3v9 M6 8l4 4 4-4 M3 13v4h14v-4" styleClass="upload-icon" />
+                                    <Label styleClass="placeholder-text" text="Drop the later image" />
+                                    <Label styleClass="placeholder-subtext" text="or click to browse" />
+                                </VBox>
+                                <ImageView fx:id="afterImageView" fitHeight="170.0" fitWidth="220.0" preserveRatio="true" smooth="true" visible="false" />
+                            </StackPane>
+                            <VBox spacing="1.0">
+                                <Label fx:id="afterFilenameLabel" minHeight="-Infinity" styleClass="file-label" text="No image yet" wrapText="true" />
+                                <Label fx:id="afterDimensionLabel" minHeight="-Infinity" styleClass="file-sublabel" text="PNG, JPG, BMP or TIFF" wrapText="true" />
+                            </VBox>
                         </VBox>
                     </VBox>
 
-                    <!-- Changed-Pixel Statistics Card -->
-                    <VBox spacing="10.0" styleClass="card" GridPane.columnIndex="1">
+                    <!-- Result: the biggest block on the screen -->
+                    <VBox maxHeight="Infinity" spacing="12.0" styleClass="card" GridPane.columnIndex="1">
                         <padding>
-                            <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                            <Insets bottom="16.0" left="16.0" right="16.0" top="14.0" />
                         </padding>
-                        <Label styleClass="card-section-title" text="QUANTITATIVE CHANGE METRICS" wrapText="true" />
+                        <HBox alignment="CENTER_LEFT" spacing="8.0">
+                            <Label minWidth="-Infinity" styleClass="card-section-title" text="Result" />
+                            <Label fx:id="resultEngineBadge" minWidth="-Infinity" styleClass="pill" text="No result yet" />
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Button fx:id="enlargeButton" disable="true" minWidth="-Infinity" onAction="#handleEnlarge" styleClass="btn-text" text="Full size">
+                                <tooltip>
+                                    <Tooltip text="Open the current view at full resolution in its own window (Esc closes it)" wrapText="true" maxWidth="280.0" />
+                                </tooltip>
+                            </Button>
+                        </HBox>
 
-                        <!-- Engine that produced the current results -->
+                        <FlowPane hgap="8.0" vgap="8.0">
+                            <HBox styleClass="segmented">
+                                <ToggleButton fx:id="modeOverlayToggle" disable="true" minWidth="-Infinity" selected="true" styleClass="mode-toggle" text="Overlay" toggleGroup="$viewModeGroup" userData="RED_OVERLAY" />
+                                <ToggleButton fx:id="modeMaskToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Mask" toggleGroup="$viewModeGroup" userData="BINARY_MASK" />
+                                <ToggleButton fx:id="modeChangeMapToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Change map" toggleGroup="$viewModeGroup" userData="CHANGE_MAP" />
+                            </HBox>
+                            <HBox styleClass="segmented">
+                                <ToggleButton fx:id="modeGroundTruthToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Label" toggleGroup="$viewModeGroup" userData="GROUND_TRUTH" />
+                                <ToggleButton fx:id="modeErrorsToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Errors" toggleGroup="$viewModeGroup" userData="ERRORS" />
+                            </HBox>
+                            <HBox styleClass="segmented">
+                                <ToggleButton fx:id="compareToggle" disable="true" minWidth="-Infinity" styleClass="mode-toggle" text="Compare" toggleGroup="$viewModeGroup" userData="COMPARE" />
+                            </HBox>
+                        </FlowPane>
+
+                        <ProgressBar fx:id="analysisProgressBar" maxWidth="Infinity" progress="-1.0" visible="false" />
+
+                        <StackPane fx:id="changeMapContainer" minHeight="260.0" minWidth="0.0" prefHeight="400.0" styleClass="image-container" VBox.vgrow="ALWAYS">
+                            <VBox fx:id="changeMapPlaceholder" alignment="CENTER" maxWidth="360.0" spacing="6.0">
+                                <Label fx:id="changeMapStatusLabel" styleClass="placeholder-text" text="No result yet" textAlignment="CENTER" wrapText="true" />
+                                <Label fx:id="changeMapHintLabel" styleClass="placeholder-subtext" text="Load a before and an after image, then press Analyze changes." textAlignment="CENTER" wrapText="true" />
+                            </VBox>
+                            <ImageView fx:id="changeMapImageView" fitHeight="380.0" fitWidth="460.0" preserveRatio="true" smooth="true" visible="false" />
+                        </StackPane>
+
+                        <VBox spacing="6.0" styleClass="legend-box">
+                            <Label fx:id="legendModeLabel" managed="false" styleClass="legend-mode" visible="false" />
+                            <FlowPane fx:id="legendPane" hgap="16.0" vgap="6.0" />
+                            <Label fx:id="legendCaption" minHeight="-Infinity" styleClass="legend-caption" text="" wrapText="true" />
+                            <Label fx:id="gtViewNote" minHeight="-Infinity" styleClass="control-label-small" text="" wrapText="true" />
+                        </VBox>
+                    </VBox>
+
+                    <!-- Measurements -->
+                    <VBox fx:id="measurementsCard" maxHeight="Infinity" spacing="14.0" styleClass="card" GridPane.columnIndex="2">
+                        <padding>
+                            <Insets bottom="16.0" left="18.0" right="18.0" top="14.0" />
+                        </padding>
+
                         <VBox spacing="2.0" styleClass="engine-produced-box">
-                            <padding>
-                                <Insets bottom="8.0" left="10.0" right="10.0" top="8.0" />
-                            </padding>
-                            <Label styleClass="metric-caption" text="RESULTS PRODUCED BY" />
-                            <Label fx:id="statEngine" styleClass="metric-engine" text="-- (no analysis run yet)" wrapText="true" />
-                            <Label fx:id="statInput" styleClass="metric-sub" text="" wrapText="true" />
+                            <Label styleClass="card-section-title" text="Measurements" />
+                            <Label fx:id="statEngine" minHeight="-Infinity" styleClass="metric-engine" text="No analysis yet" wrapText="true" />
+                            <Label fx:id="statInput" minHeight="-Infinity" styleClass="metric-sub" text="" wrapText="true" />
                         </VBox>
 
-                        <GridPane hgap="8.0" vgap="8.0">
-                            <columnConstraints>
-                                <ColumnConstraints percentWidth="50.0" />
-                                <ColumnConstraints percentWidth="50.0" />
-                            </columnConstraints>
-
-                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0" GridPane.rowIndex="0">
-                                <Label styleClass="metric-caption" text="CHANGED AREA" />
-                                <Label fx:id="statChangePercent" styleClass="metric-value-hero" text="--" />
-                                <Label styleClass="metric-sub" text="of all pixels" />
-                            </VBox>
-                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1" GridPane.rowIndex="0">
-                                <Label styleClass="metric-caption" text="CHANGED PIXELS" />
-                                <Label fx:id="statChangedPixels" styleClass="metric-value" text="--" />
-                                <Label fx:id="statTotalPixels" styleClass="metric-sub" text="of -- px" />
-                            </VBox>
-                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0" GridPane.rowIndex="1">
-                                <Label styleClass="metric-caption" text="CHANGE REGIONS" />
-                                <Label fx:id="statRegions" styleClass="metric-value" text="--" />
-                                <Label styleClass="metric-sub" text="8-connected" />
-                            </VBox>
-                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                <Label styleClass="metric-caption" text="OTSU THRESHOLD" />
-                                <Label fx:id="statOtsu" styleClass="metric-value" text="--" />
-                                <Label fx:id="statOtsuSub" styleClass="metric-sub" text="on |ΔY|, baseline only" />
-                            </VBox>
-                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0" GridPane.rowIndex="2">
-                                <Label styleClass="metric-caption" text="LATENCY" />
-                                <Label fx:id="statLatency" styleClass="metric-value" text="--" />
-                                <Label styleClass="metric-sub" text="engine only" />
-                            </VBox>
-                            <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1" GridPane.rowIndex="2">
-                                <Label styleClass="metric-caption" text="IMAGE SIZE" />
-                                <Label fx:id="statImageSize" styleClass="metric-value" text="--" />
-                                <Label styleClass="metric-sub" text="width × height" />
-                            </VBox>
-                        </GridPane>
-
-                        <HBox alignment="CENTER_LEFT" spacing="8.0" styleClass="stat-row">
-                            <Label maxWidth="Infinity" styleClass="stat-label" text="Change level (heuristic):" wrapText="true" HBox.hgrow="ALWAYS">
+                        <!-- The answer figure, with its share drawn at the true ratio -->
+                        <VBox spacing="4.0">
+                            <Label styleClass="metric-caption" text="Changed area">
                                 <tooltip>
-                                    <Tooltip text="Rule of thumb from the share of changed pixels only: &lt; 1 % low, 1–5 % moderate, 5–15 % high, ≥ 15 % severe. Not a verified encroachment assessment." wrapText="true" maxWidth="320.0" />
+                                    <Tooltip text="Measured on the engine's binary mask. Areas are in pixels; square metres only where the resolution is known (LEVIR-CD, 0.5 m per pixel)." wrapText="true" maxWidth="300.0" />
                                 </tooltip>
                             </Label>
-                            <Label fx:id="statChangeLevel" minWidth="-Infinity" styleClass="stat-value-badge" text="Awaiting Data" />
-                        </HBox>
-                        <Label fx:id="statAreaM2" managed="false" styleClass="stat-note-plain" text="" visible="false" wrapText="true" />
+                            <Label fx:id="statChangePercent" styleClass="metric-value-hero" text="—" />
+                            <StackPane fx:id="shareTrack" alignment="CENTER_LEFT" styleClass="share-track">
+                                <Region fx:id="shareFill" maxWidth="0.0" styleClass="share-fill" />
+                            </StackPane>
+                            <Label fx:id="statChangedPixels" minHeight="-Infinity" styleClass="metric-sub" text="" />
+                            <Label fx:id="statTotalPixels" managed="false" text="" visible="false" />
+                        </VBox>
 
-                        <!-- Per-image comparison with the ground-truth label (LEVIR-CD pairs only) -->
+                        <GridPane hgap="10.0" styleClass="kv-list">
+                            <columnConstraints>
+                                <ColumnConstraints hgrow="ALWAYS" />
+                                <ColumnConstraints halignment="RIGHT" />
+                            </columnConstraints>
+                            <Region styleClass="rule" GridPane.columnSpan="2" GridPane.rowIndex="0" />
+                            <Label styleClass="kv-row-label" text="Regions" GridPane.rowIndex="1" />
+                            <Label fx:id="statRegions" minWidth="-Infinity" styleClass="kv-row-value" text="—" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                            <Region styleClass="rule" GridPane.columnSpan="2" GridPane.rowIndex="2" />
+                            <Label styleClass="kv-row-label" text="Change level" GridPane.rowIndex="3">
+                                <tooltip>
+                                    <Tooltip text="Rule of thumb from the share of changed pixels only: under 1 % low, 1–5 % moderate, 5–15 % high, 15 % or more severe. Not a verified encroachment assessment." wrapText="true" maxWidth="320.0" />
+                                </tooltip>
+                            </Label>
+                            <Label fx:id="statChangeLevel" minWidth="-Infinity" styleClass="stat-value-badge" text="—" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                            <Region styleClass="rule" GridPane.columnSpan="2" GridPane.rowIndex="4" />
+                            <Label styleClass="kv-row-label" text="Image size" GridPane.rowIndex="5" />
+                            <Label fx:id="statImageSize" minWidth="-Infinity" styleClass="kv-row-value" text="—" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                            <Region styleClass="rule" GridPane.columnSpan="2" GridPane.rowIndex="6" />
+                            <Label styleClass="kv-row-label" text="Engine time" GridPane.rowIndex="7" />
+                            <Label fx:id="statLatency" minWidth="-Infinity" styleClass="kv-row-value" text="—" GridPane.columnIndex="1" GridPane.rowIndex="7" />
+                            <Region styleClass="rule" GridPane.columnSpan="2" GridPane.rowIndex="8" />
+                            <Label styleClass="kv-row-label" text="Otsu threshold" GridPane.rowIndex="9">
+                                <tooltip>
+                                    <Tooltip text="The brightness-difference cut-off Otsu's method chose for this pair. Only the classical baseline uses one." wrapText="true" maxWidth="300.0" />
+                                </tooltip>
+                            </Label>
+                            <Label fx:id="statOtsuSub" managed="false" text="" visible="false" />
+                            <Label fx:id="statOtsu" minWidth="-Infinity" styleClass="kv-row-value" text="—" GridPane.columnIndex="1" GridPane.rowIndex="9" />
+                        </GridPane>
+
+                        <Label fx:id="statAreaM2" minHeight="-Infinity" managed="false" styleClass="stat-note-plain" text="" visible="false" wrapText="true" />
+
+                        <!-- Per-image comparison with the label (LEVIR-CD pairs only) -->
                         <VBox fx:id="gtBlock" spacing="8.0" styleClass="gt-block">
-                            <padding>
-                                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-                            </padding>
-                            <HBox alignment="CENTER_LEFT" spacing="8.0">
-                                <Label maxWidth="Infinity" styleClass="gt-title" text="COMPARED WITH GROUND TRUTH (THIS IMAGE)" wrapText="true" HBox.hgrow="ALWAYS" />
-                                <Label minWidth="-Infinity" styleClass="badge-warning" text="PER IMAGE" />
+                            <HBox alignment="BASELINE_LEFT" spacing="6.0">
+                                <Label minWidth="-Infinity" styleClass="gt-title" text="Against the label" />
+                                <Label fx:id="gtScopeLabel" minWidth="0.0" styleClass="card-meta" text="this image only" />
                             </HBox>
-                            <GridPane fx:id="gtTiles" hgap="8.0" vgap="8.0">
+                            <GridPane fx:id="gtTiles" styleClass="gt-tiles">
                                 <columnConstraints>
-                                    <ColumnConstraints percentWidth="25.0" />
-                                    <ColumnConstraints percentWidth="25.0" />
-                                    <ColumnConstraints percentWidth="25.0" />
-                                    <ColumnConstraints percentWidth="25.0" />
+                                    <ColumnConstraints percentWidth="50.0" />
+                                    <ColumnConstraints percentWidth="50.0" />
                                 </columnConstraints>
-                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0">
+                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0" GridPane.rowIndex="0">
                                     <Label styleClass="metric-caption" text="F1" />
-                                    <Label fx:id="gtF1" styleClass="metric-value" text="--" />
+                                    <Label fx:id="gtF1" styleClass="metric-value" text="—" />
                                 </VBox>
-                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1">
+                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1" GridPane.rowIndex="0">
                                     <Label styleClass="metric-caption" text="IoU" />
-                                    <Label fx:id="gtIoU" styleClass="metric-value" text="--" />
+                                    <Label fx:id="gtIoU" styleClass="metric-value" text="—" />
                                 </VBox>
-                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="2">
-                                    <Label styleClass="metric-caption" text="PRECISION" />
-                                    <Label fx:id="gtPrecision" styleClass="metric-value" text="--" />
+                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                                    <Label styleClass="metric-caption" text="Precision" />
+                                    <Label fx:id="gtPrecision" styleClass="metric-value" text="—" />
                                 </VBox>
-                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="3">
-                                    <Label styleClass="metric-caption" text="RECALL" />
-                                    <Label fx:id="gtRecall" styleClass="metric-value" text="--" />
+                                <VBox spacing="2.0" styleClass="metric-tile" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                                    <Label styleClass="metric-caption" text="Recall" />
+                                    <Label fx:id="gtRecall" styleClass="metric-value" text="—" />
                                 </VBox>
                             </GridPane>
-                            <Label fx:id="gtCounts" styleClass="metric-sub" text="" wrapText="true" />
-                            <Label fx:id="gtBenchmark" styleClass="metric-sub" text="" wrapText="true" />
-                            <Label fx:id="gtNote" styleClass="gt-note" text="" wrapText="true" />
+                            <Label fx:id="gtCounts" minHeight="-Infinity" styleClass="metric-sub" text="" wrapText="true" />
+                            <Label fx:id="gtBenchmark" minHeight="-Infinity" styleClass="metric-sub" text="" wrapText="true" />
+                            <Label fx:id="gtNote" minHeight="-Infinity" styleClass="gt-note" text="" wrapText="true" />
                         </VBox>
 
                         <Region VBox.vgrow="ALWAYS" />
-                        <Label styleClass="stat-note" wrapText="true"
-                               text="Statistics are computed from the selected engine's binary change mask. Areas are given in pixels: no ground-sample-distance calibration is applied to arbitrary inputs." />
+                        <Label fx:id="savedLabel" minHeight="-Infinity" managed="false" styleClass="saved-note" text="" visible="false" wrapText="true" />
+
                     </VBox>
-               <rowConstraints>
-                  <RowConstraints />
-               </rowConstraints>
                 </GridPane>
 
-                <!-- SYSTEM AUDIT & PIPELINE LOG -->
-                <VBox spacing="8.0" styleClass="card">
+                <!-- Activity log -->
+                <VBox spacing="10.0" styleClass="card">
                     <padding>
-                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                        <Insets bottom="16.0" left="16.0" right="16.0" top="14.0" />
                     </padding>
-                    <HBox alignment="CENTER_LEFT" spacing="8.0">
-                        <Label maxWidth="Infinity" styleClass="card-section-title" text="SYSTEM AUDIT &amp; PIPELINE ACTIVITY LOG" wrapText="true" HBox.hgrow="ALWAYS" />
-                        <Label minWidth="-Infinity" styleClass="badge-info" text="REALTIME LOG" />
+                    <HBox alignment="BASELINE_LEFT" spacing="8.0">
+                        <Label minWidth="-Infinity" styleClass="card-section-title" text="Activity log" />
+                        <Label minWidth="0.0" styleClass="card-meta" text="every step of this session, newest last" />
                     </HBox>
-                    <TextArea fx:id="activityLogArea" editable="false" prefRowCount="6" styleClass="log-area" wrapText="true" />
+                    <TextArea fx:id="activityLogArea" editable="false" prefRowCount="7" styleClass="log-area" wrapText="true" />
                 </VBox>
 
             </VBox>

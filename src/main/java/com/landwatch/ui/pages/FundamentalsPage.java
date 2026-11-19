@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * "NN Fundamentals" page: buttons that RUN the project's pure-Java neural-network code on a background
+ * "NN fundamentals" page: buttons that RUN the project's pure-Java neural-network code on a background
  * thread and show its output. Nothing is pre-recorded.
  */
 public final class FundamentalsPage {
@@ -29,18 +29,18 @@ public final class FundamentalsPage {
 
     public FundamentalsPage(Consumer<String> log) {
         this.log = log;
-        VBox content = Ui.pageContent("NN Fundamentals",
+        VBox content = Ui.pageContent("NN fundamentals",
                 "Pure-Java implementations in com.landwatch.fundamentals (no ML libraries). Each button runs the real "
                         + "computation on a background thread with a fixed seed; the output below is produced live.",
-                "LIVE COMPUTATION");
+                "computed live in plain Java");
 
-        content.getChildren().add(demoCard("runXorButton", "XOR WITH A MULTILAYER PERCEPTRON · BACKPROPAGATION",
+        content.getChildren().add(demoCard("runXorButton", "XOR with a multilayer perceptron and backpropagation",
                 "Trains a 2-4-1 sigmoid network on the XOR truth table with backpropagation and plain SGD.",
                 "▶  Run XOR training", 20, FundamentalsDemos::runXor));
-        content.getChildren().add(demoCard("runGradientCheckButton", "GRADIENT CHECK · BACKPROPAGATION VS FINITE DIFFERENCES",
+        content.getChildren().add(demoCard("runGradientCheckButton", "Gradient check: backpropagation against finite differences",
                 "Compares every analytical gradient of a 2-3-1 network with a central finite-difference estimate.",
                 "▶  Run gradient check", 15, FundamentalsDemos::runGradientCheck));
-        content.getChildren().add(demoCard("runLearningRulesButton", "CLASSIC LEARNING RULES",
+        content.getChildren().add(demoCard("runLearningRulesButton", "Classic learning rules",
                 "Hebbian, Oja, competitive (winner-take-all), perceptron, LMS / delta rule and Boltzmann learning on small "
                         + "synthetic data sets.",
                 "▶  Run learning-rules demo", 22, FundamentalsDemos::runLearningRules));
@@ -60,7 +60,7 @@ public final class FundamentalsPage {
 
     private VBox demoCard(String buttonId, String title, String description, String buttonText, int rows,
                           Callable<String> computation) {
-        VBox card = Ui.card(title, "COMPUTED LIVE", "badge-accent");
+        VBox card = Ui.card(title, "computed live", null);
         Label desc = Ui.label(description, "page-note");
         desc.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(desc, Priority.ALWAYS);

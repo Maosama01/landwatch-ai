@@ -8,6 +8,7 @@ import com.landwatch.ui.ChangeVisualizationSet;
 import com.landwatch.ui.GroundTruthComparison;
 import com.landwatch.ui.GroundTruthView;
 import com.landwatch.ui.ResultExporter;
+import com.landwatch.ui.SwipeCompareView;
 import com.landwatch.ui.VisualizationMode;
 import com.landwatch.ui.data.AppPaths;
 import com.landwatch.ui.data.LevirPair;
@@ -22,13 +23,17 @@ import com.landwatch.ui.pages.BenchmarksPage;
 import com.landwatch.ui.pages.FailureAnalysisPage;
 import com.landwatch.ui.pages.FundamentalsPage;
 import javafx.application.Platform;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -40,16 +45,24 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.RowConstraints;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 import java.awt.image.BufferedImage;
@@ -58,6 +71,8 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -75,11 +90,11 @@ import java.util.stream.Collectors;
  * {@code [y][x]} + engine name + latency). Every visualisation, statistic, log line and exported file
  * is derived from that mask, so a new engine only has to implement {@link ChangeDetectionEngine}.</p>
  *
- * <p>When the inputs are a LEVIR-CD pair loaded with "Load LEVIR-CD Pair…", the pair's ground-truth
+ * <p>When the inputs are a LEVIR-CD pair loaded with "Open LEVIR-CD pair…" (or dropped onto a frame), the pair's ground-truth
  * label is kept as well: the analysis then also renders the label and a TP/FP/FN error map and computes
  * per-image metrics with {@link BinaryChangeMetrics}. The deep model is loaded asynchronously at start-up
  * and becomes selectable once ready. The sidebar switches between the analysis view and the
- * Benchmarks, NN Fundamentals, Failure Analysis and About pages.</p>
+ * Benchmarks, NN fundamentals, Failure analysis and About pages.</p>
  */
 public class DashboardController implements Initializable {
 
@@ -98,7 +113,10 @@ public class DashboardController implements Initializable {
 
     // Header & Status
     @FXML private Label systemStatusLabel;
-    @FXML private Label engineModeLabel;
+    @FXML private Region modelStatusDot;
+    @FXML private Label modelStatusLabel;
+    @FXML private Button themeToggleButton;
+    @FXML private Label resultSummaryLabel;
     @FXML private ScrollPane contentScrollPane;
 
     // Before (Date 1) Panel
@@ -132,7 +150,10 @@ public class DashboardController implements Initializable {
     @FXML private ImageView changeMapImageView;
     @FXML private VBox changeMapPlaceholder;
     @FXML private Label changeMapStatusLabel;
+    @FXML private Label changeMapHintLabel;
     @FXML private Label resultEngineBadge;
+    @FXML private Button enlargeButton;
+    @FXML private ToggleButton compareToggle;
     @FXML private ToggleGroup viewModeGroup;
     @FXML private ToggleButton modeMaskToggle;
     @FXML private ToggleButton modeOverlayToggle;
@@ -157,6 +178,9 @@ public class DashboardController implements Initializable {
     @FXML private Label statImageSize;
     @FXML private Label statChangeLevel;
     @FXML private Label statAreaM2;
+    @FXML private StackPane shareTrack;
+    @FXML private Region shareFill;
+    @FXML private Label savedLabel;
 
     // Per-image ground-truth comparison
     @FXML private VBox gtBlock;
@@ -171,6 +195,13 @@ public class DashboardController implements Initializable {
 
     // Activity / Audit Log
     @FXML private TextArea activityLogArea;
+
+    // Workspace layout
+    @FXML private GridPane resultsGrid;
+    @FXML private RowConstraints workspaceRow;
+    @FXML private Label gtScopeLabel;
+    @FXML private VBox measurementsCard;
+    private Runnable fitWorkspace = () -> { };
 
     // State
     private File beforeFile = null;
@@ -190,6 +221,16 @@ public class DashboardController implements Initializable {
     private ChangeView currentView = VisualizationMode.RED_OVERLAY;
     private volatile boolean analysisRunning = false;
     private final AtomicInteger completedAnalyses = new AtomicInteger();
+    /** True while the before/after swipe comparison is shown instead of an engine view. */
+    private boolean compareActive = false;
+    private final SwipeCompareView swipeView = new SwipeCompareView();
+    /** Share of changed pixels (0..1), drawn at its true ratio under the headline figure. */
+    private final DoubleProperty shareFraction = new SimpleDoubleProperty(0);
+    /** The inputs changed after the result on screen was computed. */
+    private boolean resultsStale = false;
+    /** The user picked an engine themselves, so the deep model is not auto-selected once it is ready. */
+    private boolean userPickedEngine = false;
+    private boolean programmaticEngineChange = false;
 
     private SiameseUNetEngine deepEngine;
 
@@ -221,15 +262,22 @@ public class DashboardController implements Initializable {
         logMessage("LandWatch AI system initialized (Java 17 LTS).");
 
         setupEngineSelector();
+        swipeView.setVisible(false);
+        changeMapContainer.getChildren().add(swipeView);
         setupViewModes();
-        bindImageWidth(beforeImageContainer, beforeImageView);
-        bindImageWidth(afterImageContainer, afterImageView);
-        bindImageWidth(changeMapContainer, changeMapImageView);
-        bindImageHeight(changeMapContainer, changeMapImageView);
+        fitImageToContainer(beforeImageContainer, beforeImageView);
+        fitImageToContainer(afterImageContainer, afterImageView);
+        fitImageToContainer(changeMapContainer, changeMapImageView);
+        setupDropTarget(beforeImageContainer, true);
+        setupDropTarget(afterImageContainer, false);
+        setupDropTarget(changeMapContainer, null);
+        fitWorkspaceToWindow();
+        shareFill.maxWidthProperty().bind(shareTrack.widthProperty().multiply(shareFraction));
+        shareFill.prefWidthProperty().bind(shareFill.maxWidthProperty());
         setupGroundTruthTiles();
         setupPages();
+        setupShortcuts();
 
-        systemStatusLabel.setText("System: Standby");
         resetDashboardState();
         startDeepModelLoad();
     }
@@ -251,7 +299,7 @@ public class DashboardController implements Initializable {
         }
         engineComboBox.getItems().setAll(engines);
         installEngineCells();
-        engineComboBox.setValue(firstAvailableEngine());
+        setEngineProgrammatically(firstAvailableEngine());
         onEngineSelected(engineComboBox.getValue(), false);
 
         engineComboBox.valueProperty().addListener((obs, oldEngine, newEngine) -> {
@@ -260,11 +308,24 @@ public class DashboardController implements Initializable {
                 logMessage(newEngine.getDisplayName() + " cannot be selected: " + newEngine.getStatusNote() + ".");
                 ChangeDetectionEngine fallback = (oldEngine != null && oldEngine.isAvailable())
                         ? oldEngine : firstAvailableEngine();
-                Platform.runLater(() -> engineComboBox.setValue(fallback));
+                Platform.runLater(() -> setEngineProgrammatically(fallback));
                 return;
+            }
+            if (!programmaticEngineChange) {
+                userPickedEngine = true;
             }
             onEngineSelected(newEngine, true);
         });
+    }
+
+    /** Changes the selected engine without counting it as the user's own choice. */
+    private void setEngineProgrammatically(ChangeDetectionEngine engine) {
+        programmaticEngineChange = true;
+        try {
+            engineComboBox.setValue(engine);
+        } finally {
+            programmaticEngineChange = false;
+        }
     }
 
     private void installEngineCells() {
@@ -281,18 +342,17 @@ public class DashboardController implements Initializable {
 
     private void onEngineSelected(ChangeDetectionEngine engine, boolean log) {
         if (engine == null) {
-            engineModeLabel.setText("Engine: none available");
             engineNoteLabel.setText("");
             return;
         }
-        engineModeLabel.setText("Engine: " + engine.getDisplayName());
         updateEngineNote();
+        updateSummary();
 
         if (log) {
             logMessage("Detection engine selected: " + engine.getDisplayName() + ".");
             if (lastResult != null && !lastResult.getEngineName().equals(engine.getDisplayName())) {
                 logMessage("Results on screen were produced by " + lastResult.getEngineName()
-                        + ". Click 'Analyze Changes' to run " + engine.getDisplayName() + ".");
+                        + ". Press 'Analyze changes' to run " + engine.getDisplayName() + ".");
             }
         }
     }
@@ -300,6 +360,7 @@ public class DashboardController implements Initializable {
     /** Note next to the selector: the selected engine's description plus the state of every other engine. */
     private void updateEngineNote() {
         ChangeDetectionEngine engine = engineComboBox.getValue();
+        engineNoteLabel.setText(engine != null ? engine.getStatusNote() : "");
         StringBuilder note = new StringBuilder(engine != null ? engine.getStatusNote() : "");
         for (ChangeDetectionEngine other : engineComboBox.getItems()) {
             if (other == engine) {
@@ -307,14 +368,15 @@ public class DashboardController implements Initializable {
             }
             note.append(note.length() > 0 ? "\n" : "").append(other.getDisplayName());
             if (other.isLoading()) {
-                note.append(": loading model in the background…");
+                note.append(": loading in the background…");
             } else if (!other.isAvailable()) {
                 note.append(": unavailable, ").append(other.getStatusNote()).append('.');
             } else {
-                note.append(": ready (select it above).");
+                note.append(": also ready, pick it in the menu.");
             }
         }
-        engineNoteLabel.setText(note.toString());
+        engineNoteLabel.setTooltip(tooltip(note.toString()));
+        engineComboBox.setTooltip(tooltip(note.toString()));
     }
 
     /** Combo-box cell; in the popup, unavailable engines are disabled and show their status note. */
@@ -358,6 +420,7 @@ public class DashboardController implements Initializable {
         deepEngine.markLoading();
         installEngineCells();
         updateEngineNote();
+        updateModelStatus();
         String device = System.getProperty(DeepChangeDetector.DEVICE_PROPERTY, "auto");
         logMessage("Loading the deep model from " + deepEngine.getModelDir() + " in the background (device: "
                 + device + "). The classical baseline is ready meanwhile.");
@@ -382,9 +445,10 @@ public class DashboardController implements Initializable {
     private void onDeepModelLoadFinished() {
         installEngineCells();
         if (engineComboBox.getValue() == null) {
-            engineComboBox.setValue(firstAvailableEngine());
+            setEngineProgrammatically(firstAvailableEngine());
         }
         updateEngineNote();
+        updateModelStatus();
         if (deepEngine.isAvailable()) {
             logMessage("Deep model ready: " + deepEngine.getStatusNote() + ".");
             String description = deepEngine.getDescription();
@@ -393,13 +457,78 @@ public class DashboardController implements Initializable {
                     logMessage("[Model] " + line.strip());
                 }
             }
-            logMessage("Select '" + deepEngine.getDisplayName() + "' in the engine selector to use it.");
+            if (!userPickedEngine && !analysisRunning) {
+                setEngineProgrammatically(deepEngine);
+                logMessage("Selected '" + deepEngine.getDisplayName() + "' as the engine. The classical baseline "
+                        + "stays available in the Engine menu.");
+            } else {
+                logMessage("Select '" + deepEngine.getDisplayName() + "' in the Engine menu to use it.");
+            }
         } else {
             logMessage("Deep model unavailable: " + deepEngine.getStatusNote()
                     + ". Only the classical baseline can run (set -D" + SiameseUNetEngine.MODEL_DIR_PROPERTY
                     + "=<dir> to use another model directory).");
         }
         refreshVisiblePage();
+    }
+
+    /** Sidebar status of the deep model: a dot (ready, loading, unavailable) and one line of text. */
+    private void updateModelStatus() {
+        modelStatusDot.getStyleClass().removeAll("dot-ready", "dot-loading", "dot-off");
+        if (deepEngine == null) {
+            modelStatusDot.getStyleClass().add("dot-off");
+            modelStatusLabel.setText("No deep model configured");
+        } else if (deepEngine.isLoading()) {
+            modelStatusDot.getStyleClass().add("dot-loading");
+            modelStatusLabel.setText("Deep model loading…");
+        } else if (deepEngine.isAvailable()) {
+            modelStatusDot.getStyleClass().add("dot-ready");
+            String device = deepEngine.getDeviceName();
+            modelStatusLabel.setText("Deep model ready" + (device != null ? " · " + prettyDevice(device) : ""));
+        } else {
+            modelStatusDot.getStyleClass().add("dot-off");
+            modelStatusLabel.setText("Deep model unavailable");
+        }
+        Tooltip.install(modelStatusLabel, new Tooltip(deepEngine != null ? deepEngine.getStatusNote() : ""));
+    }
+
+    /** "mps(0)" → "Apple GPU", "cpu()" → "CPU", anything else unchanged. */
+    static String prettyDevice(String djlDevice) {
+        if (djlDevice == null) {
+            return "";
+        }
+        if (djlDevice.startsWith("mps")) {
+            return "Apple GPU";
+        }
+        if (djlDevice.startsWith("cpu")) {
+            return "CPU";
+        }
+        if (djlDevice.startsWith("gpu")) {
+            return "GPU";
+        }
+        return djlDevice;
+    }
+
+    /**
+     * Sizes the workspace row (inputs, result, measurements) to what is left of the window under the title
+     * and engine rows, so the whole result is on the first screen; never below 560 px.
+     */
+    private void fitWorkspaceToWindow() {
+        fitWorkspace = () -> {
+            double viewport = contentScrollPane.getViewportBounds().getHeight();
+            if (viewport > 0) {
+                // The measurements cannot shrink (wrapped text), so the row is never shorter than they are.
+                double width = measurementsCard.getWidth();
+                double needed = width > 0 ? measurementsCard.prefHeight(width) : 0;
+                double target = Math.max(Math.max(560, needed), viewport - resultsGrid.getLayoutY() - 24);
+                if (Math.abs(workspaceRow.getPrefHeight() - target) > 0.5) {
+                    workspaceRow.setPrefHeight(target);
+                }
+            }
+        };
+        contentScrollPane.viewportBoundsProperty().addListener((obs, o, n) -> fitWorkspace.run());
+        resultsGrid.layoutYProperty().addListener((obs, o, n) -> fitWorkspace.run());
+        measurementsCard.widthProperty().addListener((obs, o, n) -> fitWorkspace.run());
     }
 
     /** The deep engine (for the snapshot tool and pages). */
@@ -477,15 +606,94 @@ public class DashboardController implements Initializable {
                 }
                 return;
             }
+            if (newToggle == compareToggle) {
+                compareActive = true;
+                refreshViewer();
+                logMessage("Compare view: drag the divider (or use the arrow keys) to compare the two dates.");
+                return;
+            }
+            compareActive = false;
             ChangeView view = viewOf(newToggle);
             if (view != currentView) {
                 currentView = view;
                 applyView(view, true);
+            } else {
+                refreshViewer();
             }
         });
         Toggle selected = viewModeGroup.getSelectedToggle();
-        currentView = (selected != null) ? viewOf(selected) : VisualizationMode.RED_OVERLAY;
+        currentView = (selected != null && selected != compareToggle) ? viewOf(selected) : VisualizationMode.RED_OVERLAY;
         applyView(currentView, false);
+
+        String[] keys = {"1", "2", "3", "4", "5", "6"};
+        ToggleButton[] toggles = {modeOverlayToggle, modeMaskToggle, modeChangeMapToggle,
+                modeGroundTruthToggle, modeErrorsToggle, compareToggle};
+        String[] tips = {
+                "The after image with the detected change in red and an amber box around each region",
+                "The engine's raw output: white = change, black = no change",
+                "Change regions in cyan with a yellow outline over the dimmed after image",
+                "The LEVIR-CD ground-truth label of this pair (building changes only)",
+                "Engine against the label: yellow = found, orange = false alarm, blue = missed",
+                "Drag a divider across the two dates of the same place"};
+        for (int i = 0; i < toggles.length; i++) {
+            toggles[i].setTooltip(tooltip(tips[i] + " (" + shortcutText(keys[i]) + ")"));
+        }
+    }
+
+    /** Selects the before/after swipe comparison (used by the snapshot tool); ignored if unavailable. */
+    public void selectCompare() {
+        if (!compareToggle.isDisabled()) {
+            viewModeGroup.selectToggle(compareToggle);
+        }
+    }
+
+    /**
+     * Shows exactly one thing in the result frame: the swipe comparison, the image of the current view,
+     * or the placeholder sentence; and the legend that belongs to it.
+     */
+    private void refreshViewer() {
+        boolean showing = (compareActive && swipeView.hasImages()) || fxImages.get(currentView) != null;
+        changeMapContainer.getStyleClass().remove("has-image");
+        if (showing) {
+            changeMapContainer.getStyleClass().add("has-image");
+        }
+        if (compareActive && swipeView.hasImages()) {
+            swipeView.setVisible(true);
+            changeMapImageView.setVisible(false);
+            changeMapPlaceholder.setVisible(false);
+            enlargeButton.setDisable(true);
+            legendPane.getChildren().clear();
+            legendCaption.setText("Before on the left of the divider, after on the right, at the same place. "
+                    + "Drag the divider, or click the image and use the arrow keys.");
+            return;
+        }
+        swipeView.setVisible(false);
+        Image image = fxImages.get(currentView);
+        changeMapImageView.setVisible(image != null);
+        changeMapPlaceholder.setVisible(image == null);
+        if (image != null) {
+            changeMapImageView.setImage(image);
+            updateLegend(currentView);
+        } else {
+            legendPane.getChildren().clear();
+            legendCaption.setText("");
+        }
+        enlargeButton.setDisable(image == null);
+        Platform.runLater(fitWorkspace);
+    }
+
+    /** The swipe comparison needs two loaded images of the same size. */
+    private void updateCompareAvailability() {
+        boolean ok = beforeBufferedImage != null && afterBufferedImage != null
+                && beforeBufferedImage.getWidth() == afterBufferedImage.getWidth()
+                && beforeBufferedImage.getHeight() == afterBufferedImage.getHeight();
+        swipeView.setImages(ok ? beforeImageView.getImage() : null, ok ? afterImageView.getImage() : null);
+        compareToggle.setDisable(!ok || analysisRunning);
+        if (!ok && compareActive) {
+            viewModeGroup.selectToggle(toggleFor(currentView).isDisabled() ? modeOverlayToggle : toggleFor(currentView));
+            compareActive = false;
+        }
+        refreshViewer();
     }
 
     private static ChangeView viewOf(Toggle toggle) {
@@ -514,27 +722,170 @@ public class DashboardController implements Initializable {
         }
     }
 
-    /** Keeps an ImageView inside its container when the window is narrow (height stays fixed). */
-    private static void bindImageWidth(StackPane container, ImageView view) {
-        if (container == null || view == null) {
-            return;
-        }
-        double initialFitWidth = view.getFitWidth();
-        container.widthProperty().addListener((obs, oldW, newW) -> {
-            double available = newW.doubleValue() - 16;
-            if (available > 40) {
-                view.setFitWidth(Math.min(initialFitWidth, available));
+    /**
+     * Fits an image into its frame (8px inside it), centred, at any window size. The view is unmanaged,
+     * so its size never feeds back into the frame's own size: the frame can shrink as well as grow.
+     */
+    private static void fitImageToContainer(StackPane container, ImageView view) {
+        view.setManaged(false);
+        Runnable layout = () -> {
+            Image image = view.getImage();
+            double boxW = container.getWidth() - 16;
+            double boxH = container.getHeight() - 16;
+            if (image == null || boxW <= 0 || boxH <= 0) {
+                return;
             }
-        });
+            double[] size = SwipeCompareView.fit(image.getWidth(), image.getHeight(), boxW, boxH);
+            view.setFitWidth(size[0]);
+            view.setFitHeight(size[1]);
+            view.relocate((container.getWidth() - size[0]) / 2, (container.getHeight() - size[1]) / 2);
+        };
+        container.widthProperty().addListener((obs, o, n) -> layout.run());
+        container.heightProperty().addListener((obs, o, n) -> layout.run());
+        view.imageProperty().addListener((obs, o, n) -> layout.run());
     }
 
-    /** Lets the change map use the extra height when its card is stretched (the container's pref height is fixed). */
-    private static void bindImageHeight(StackPane container, ImageView view) {
-        double initialFitHeight = view.getFitHeight();
-        container.heightProperty().addListener((obs, oldH, newH) -> {
-            double available = newH.doubleValue() - 16;
-            view.setFitHeight(Math.max(initialFitHeight, available));
+    /**
+     * Makes an image frame accept dropped files and, while empty, open the file chooser on a click.
+     * {@code before} is true for the before frame, false for the after frame and null for the result
+     * frame (one image there fills whichever input is still empty).
+     */
+    private void setupDropTarget(StackPane container, Boolean before) {
+        container.setOnDragOver(e -> {
+            if (e.getDragboard().hasFiles() && !analysisRunning) {
+                e.acceptTransferModes(TransferMode.COPY);
+            }
+            e.consume();
         });
+        container.setOnDragEntered(e -> {
+            if (e.getDragboard().hasFiles() && !analysisRunning && !container.getStyleClass().contains("drag-over")) {
+                container.getStyleClass().add("drag-over");
+            }
+        });
+        container.setOnDragExited(e -> container.getStyleClass().remove("drag-over"));
+        container.setOnDragDropped(e -> {
+            boolean done = e.getDragboard().hasFiles() && loadDroppedFiles(e.getDragboard().getFiles(), before);
+            e.setDropCompleted(done);
+            e.consume();
+        });
+        if (before != null) {
+            container.setOnMouseClicked(e -> {
+                boolean empty = before ? beforeBufferedImage == null : afterBufferedImage == null;
+                if (e.getButton() == MouseButton.PRIMARY && empty && !analysisRunning) {
+                    if (before) {
+                        handleUploadBefore();
+                    } else {
+                        handleUploadAfter();
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Two or more dropped images become the before and after inputs (in file-name order). One image from
+     * a LEVIR-CD A/, B/ or label/ folder loads its whole pair with the label; any other single image
+     * fills the frame it was dropped on.
+     */
+    public boolean loadDroppedFiles(List<File> files, Boolean before) {
+        List<File> images = new ArrayList<>();
+        for (File f : files) {
+            String n = f.getName().toLowerCase(Locale.ROOT);
+            if (f.isFile() && (n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".bmp")
+                    || n.endsWith(".tif") || n.endsWith(".tiff"))) {
+                images.add(f);
+            }
+        }
+        if (images.isEmpty()) {
+            logMessage("Ignored the dropped file(s): only PNG, JPG, BMP and TIFF images can be analysed.");
+            return false;
+        }
+        if (images.size() >= 2) {
+            images.sort(Comparator.comparing(File::getName));
+            if (images.size() > 2) {
+                logMessage("Dropped " + images.size() + " images; using the first two by name as before and after.");
+            }
+            boolean ok = loadBeforeFile(images.get(0));
+            return loadAfterFile(images.get(1)) && ok;
+        }
+        File file = images.get(0);
+        try {
+            LevirPair.locate(file.toPath());
+            return loadLevirPair(file.toPath());
+        } catch (Exception notALevirPair) {
+            boolean intoBefore = before != null ? before : beforeBufferedImage == null;
+            return intoBefore ? loadBeforeFile(file) : loadAfterFile(file);
+        }
+    }
+
+    /** Keyboard shortcuts on the main window (Shortcut is ⌘ on macOS, Ctrl elsewhere). */
+    private void setupShortcuts() {
+        analyzeButton.sceneProperty().addListener((obs, oldScene, scene) -> {
+            if (scene != null) {
+                installShortcuts(scene);
+            }
+        });
+        analyzeButton.setTooltip(tooltip("Run the selected engine on the two images (" + shortcutText("ENTER") + ")"));
+        loadDemoButton.setTooltip(tooltip("Load the bundled synthetic test pair: a computer-generated scene, not "
+                + "satellite imagery (" + shortcutText("D") + ")"));
+        loadLevirButton.setTooltip(tooltip("Pick an image in a LEVIR-CD split's A/ or B/ folder: the matching A, B "
+                + "and label files are loaded, so the result can be checked against the ground truth ("
+                + shortcutText("O") + "). You can also drop the file onto an image frame."));
+        resetButton.setTooltip(tooltip("Clear the inputs and the result (" + shortcutText("BACK_SPACE") + ")"));
+    }
+
+    private void installShortcuts(Scene scene) {
+        Map<KeyCombination, Runnable> keys = scene.getAccelerators();
+        keys.put(combo("ENTER"), () -> {
+            if (!analyzeButton.isDisabled()) {
+                handleNavAnalysis();
+                handleAnalyzeChanges();
+            }
+        });
+        keys.put(combo("O"), () -> {
+            if (!analysisRunning) {
+                handleNavAnalysis();
+                handleLoadLevirPair();
+            }
+        });
+        keys.put(combo("D"), () -> {
+            if (!analysisRunning) {
+                handleNavAnalysis();
+                handleLoadDemoPair();
+            }
+        });
+        keys.put(combo("BACK_SPACE"), () -> {
+            if (!analysisRunning) {
+                handleReset();
+            }
+        });
+        ToggleButton[] toggles = {modeOverlayToggle, modeMaskToggle, modeChangeMapToggle,
+                modeGroundTruthToggle, modeErrorsToggle, compareToggle};
+        for (int i = 0; i < toggles.length; i++) {
+            ToggleButton t = toggles[i];
+            keys.put(combo("DIGIT" + (i + 1)), () -> {
+                if (!t.isDisabled()) {
+                    handleNavAnalysis();
+                    viewModeGroup.selectToggle(t);
+                }
+            });
+        }
+    }
+
+    private static KeyCodeCombination combo(String keyCode) {
+        return new KeyCodeCombination(KeyCode.valueOf(keyCode), KeyCombination.SHORTCUT_DOWN);
+    }
+
+    private static String shortcutText(String keyOrDigit) {
+        String code = keyOrDigit.length() == 1 && Character.isDigit(keyOrDigit.charAt(0)) ? "DIGIT" + keyOrDigit : keyOrDigit;
+        return combo(code).getDisplayText();
+    }
+
+    private static Tooltip tooltip(String text) {
+        Tooltip t = new Tooltip(text);
+        t.setWrapText(true);
+        t.setMaxWidth(320);
+        return t;
     }
 
     /** Minimum width of one per-image metric tile before the 4-in-a-row layout switches to 2 x 2. */
@@ -585,46 +936,128 @@ public class DashboardController implements Initializable {
         groundTruthMask = null;
         lastResult = null;
         lastBundle = null;
+        resultsStale = false;
         fxImages.clear();
 
         beforeImageView.setImage(null);
         beforeImageView.setVisible(false);
         beforePlaceholder.setVisible(true);
-        beforeFilenameLabel.setText("No file selected");
-        beforeDimensionLabel.setText("Resolution: -- x -- px");
+        beforeImageContainer.getStyleClass().remove("has-image");
+        beforeFilenameLabel.setText("No image yet");
+        beforeDimensionLabel.setText("PNG, JPG, BMP or TIFF");
 
         afterImageView.setImage(null);
         afterImageView.setVisible(false);
         afterPlaceholder.setVisible(true);
-        afterFilenameLabel.setText("No file selected");
-        afterDimensionLabel.setText("Resolution: -- x -- px");
+        afterImageContainer.getStyleClass().remove("has-image");
+        afterFilenameLabel.setText("No image yet");
+        afterDimensionLabel.setText("PNG, JPG, BMP or TIFF");
 
         changeMapImageView.setImage(null);
-        changeMapImageView.setVisible(false);
-        changeMapPlaceholder.setVisible(true);
-        changeMapStatusLabel.setText("Awaiting analysis: load a before/after pair and click 'Analyze Changes'");
-        resultEngineBadge.setText("NO RESULT YET");
+        changeMapStatusLabel.setText("No result yet");
+        changeMapHintLabel.setText("Load a before and an after image of the same site, then press Analyze changes. "
+                + "You can drop image files on any frame.");
+        resultEngineBadge.setText("No result yet");
         setModeTogglesDisabled(true);
         updateGroundTruthControls(null);
+        if (compareActive || toggleFor(currentView).isDisabled()) {
+            viewModeGroup.selectToggle(modeOverlayToggle);
+        }
+        updateCompareAvailability();
 
-        statEngine.setText("-- (no analysis run yet)");
+        statEngine.setText("No analysis yet");
         statInput.setText("");
-        statChangePercent.setText("--");
-        statChangedPixels.setText("--");
-        statTotalPixels.setText("of -- px");
-        statRegions.setText("--");
-        statOtsu.setText("--");
-        statOtsuSub.setText("on |ΔY|, baseline only");
-        statLatency.setText("--");
-        statImageSize.setText("--");
+        setValue(statChangePercent, null);
+        statChangedPixels.setText("");
+        statTotalPixels.setText("");
+        shareFraction.set(0);
+        setValue(statRegions, null);
+        setValue(statOtsu, null);
+        statOtsuSub.setText("");
+        setValue(statLatency, null);
+        setValue(statImageSize, null);
         setChangeLevel(null);
         showAreaM2(null);
+        showSaved(null);
 
         analysisProgressBar.setVisible(false);
         analyzeButton.setDisable(true);
-        systemStatusLabel.setText("System: Standby");
+        systemStatusLabel.setText("Load an image pair to begin");
+        updateSummary();
 
-        logMessage("Dashboard reset to initial standby state.");
+        logMessage("Dashboard reset: no inputs, no result.");
+    }
+
+    /** Sets a figure, or an em dash in the faint "missing" style when {@code text} is null. */
+    private static void setValue(Label label, String text) {
+        label.getStyleClass().remove("is-empty");
+        if (text == null) {
+            label.setText("—");
+            label.getStyleClass().add("is-empty");
+        } else {
+            label.setText(text);
+        }
+    }
+
+    /** The "saved to results/…" line under the measurements; hidden when there is nothing to report. */
+    private void showSaved(String text) {
+        savedLabel.setText(text == null ? "" : text);
+        savedLabel.setVisible(text != null);
+        savedLabel.setManaged(text != null);
+    }
+
+    /**
+     * The sentence under the page title: what is loaded, what to do next, or the finding of the result
+     * on screen.
+     */
+    private void updateSummary() {
+        String text;
+        if (analysisRunning) {
+            ChangeDetectionEngine engine = engineComboBox.getValue();
+            text = "Analysing " + shortInputName() + " with " + (engine != null ? engine.getDisplayName() : "the engine") + "…";
+        } else if (lastBundle != null && !resultsStale) {
+            EngineResult r = lastBundle.result();
+            StringBuilder sb = new StringBuilder(String.format(Locale.ROOT, "%.2f %% of %s changed, in %,d region%s",
+                    r.getChangePercentage(), lastBundle.inputShortName(), r.getRegionCount(),
+                    r.getRegionCount() == 1 ? "" : "s"));
+            if (lastBundle.hasGroundTruth()) {
+                sb.append(String.format(Locale.ROOT, " · F1 %.4f against the label of this image",
+                        lastBundle.comparison().getMetrics().f1()));
+            } else if (lastBundle.syntheticInput()) {
+                sb.append(" · computer-generated, not satellite imagery");
+            }
+            text = sb.toString();
+        } else if (beforeBufferedImage != null && afterBufferedImage != null) {
+            if (beforeBufferedImage.getWidth() != afterBufferedImage.getWidth()
+                    || beforeBufferedImage.getHeight() != afterBufferedImage.getHeight()) {
+                text = String.format(Locale.ROOT, "The two images differ in size (%d × %d and %d × %d px). "
+                                + "Change detection needs two aligned images of the same size.",
+                        beforeBufferedImage.getWidth(), beforeBufferedImage.getHeight(),
+                        afterBufferedImage.getWidth(), afterBufferedImage.getHeight());
+            } else {
+                text = String.format(Locale.ROOT, "%s · %d × %d px · ready to analyse (%s)%s", shortInputName(),
+                        beforeBufferedImage.getWidth(), beforeBufferedImage.getHeight(), shortcutText("ENTER"),
+                        resultsStale ? ". The result shown is for the previous inputs" : "");
+            }
+        } else if (beforeBufferedImage != null) {
+            text = "Before image loaded. Add the after image of the same site.";
+        } else if (afterBufferedImage != null) {
+            text = "After image loaded. Add the before image of the same site.";
+        } else {
+            text = "Compare two images of the same site taken on different dates. Start with Demo pair, "
+                    + "open a LEVIR-CD pair, or drop two images on the frames below.";
+        }
+        resultSummaryLabel.setText(text);
+    }
+
+    /** Called whenever an input changes: an older result no longer matches the inputs. */
+    private void inputsChanged() {
+        if (lastBundle != null) {
+            resultsStale = true;
+        }
+        updateCompareAvailability();
+        checkReadiness();
+        updateSummary();
     }
 
     private void resetDashboardState() {
@@ -636,21 +1069,9 @@ public class DashboardController implements Initializable {
      */
     @FXML
     public void handleUploadBefore() {
-        File file = chooseImageFile("Select Pre-Event (Before) Image", null);
+        File file = chooseImageFile("Select the before (earlier) image", null);
         if (file != null) {
-            try {
-                BufferedImage buf = SatelliteImageLoader.load(file);
-                beforeFile = file;
-                beforeBufferedImage = buf;
-                beforeIsSyntheticDemo = false;
-                dropGroundTruth();
-                showInput(beforeImageView, beforePlaceholder, beforeFilenameLabel, beforeDimensionLabel,
-                        buf, file.getName(), false);
-                logMessage("Loaded Before image: " + file.getName() + " [" + buf.getWidth() + "x" + buf.getHeight() + "]");
-                checkReadiness();
-            } catch (Exception e) {
-                showError("File Error", "Could not load image: " + e.getMessage());
-            }
+            loadBeforeFile(file);
         }
     }
 
@@ -659,21 +1080,47 @@ public class DashboardController implements Initializable {
      */
     @FXML
     public void handleUploadAfter() {
-        File file = chooseImageFile("Select Post-Event (After) Image", null);
+        File file = chooseImageFile("Select the after (later) image", null);
         if (file != null) {
-            try {
-                BufferedImage buf = SatelliteImageLoader.load(file);
-                afterFile = file;
-                afterBufferedImage = buf;
-                afterIsSyntheticDemo = false;
-                dropGroundTruth();
-                showInput(afterImageView, afterPlaceholder, afterFilenameLabel, afterDimensionLabel,
-                        buf, file.getName(), false);
-                logMessage("Loaded After image: " + file.getName() + " [" + buf.getWidth() + "x" + buf.getHeight() + "]");
-                checkReadiness();
-            } catch (Exception e) {
-                showError("File Error", "Could not load image: " + e.getMessage());
-            }
+            loadAfterFile(file);
+        }
+    }
+
+    /** Loads {@code file} as the before image; returns false (after telling the user) if it cannot be read. */
+    private boolean loadBeforeFile(File file) {
+        try {
+            BufferedImage buf = SatelliteImageLoader.load(file);
+            beforeFile = file;
+            beforeBufferedImage = buf;
+            beforeIsSyntheticDemo = false;
+            dropGroundTruth();
+            showInput(beforeImageContainer, beforeImageView, beforePlaceholder, beforeFilenameLabel, beforeDimensionLabel,
+                    buf, file.getName(), false);
+            logMessage("Loaded Before image: " + file.getName() + " [" + buf.getWidth() + "x" + buf.getHeight() + "]");
+            inputsChanged();
+            return true;
+        } catch (Exception e) {
+            showError("Could not open the image", file.getName() + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Loads {@code file} as the after image; returns false (after telling the user) if it cannot be read. */
+    private boolean loadAfterFile(File file) {
+        try {
+            BufferedImage buf = SatelliteImageLoader.load(file);
+            afterFile = file;
+            afterBufferedImage = buf;
+            afterIsSyntheticDemo = false;
+            dropGroundTruth();
+            showInput(afterImageContainer, afterImageView, afterPlaceholder, afterFilenameLabel, afterDimensionLabel,
+                    buf, file.getName(), false);
+            logMessage("Loaded After image: " + file.getName() + " [" + buf.getWidth() + "x" + buf.getHeight() + "]");
+            inputsChanged();
+            return true;
+        } catch (Exception e) {
+            showError("Could not open the image", file.getName() + ": " + e.getMessage());
+            return false;
         }
     }
 
@@ -709,21 +1156,21 @@ public class DashboardController implements Initializable {
             afterIsSyntheticDemo = true;
             dropGroundTruth();
 
-            showInput(beforeImageView, beforePlaceholder, beforeFilenameLabel, beforeDimensionLabel,
+            showInput(beforeImageContainer, beforeImageView, beforePlaceholder, beforeFilenameLabel, beforeDimensionLabel,
                     beforeBufferedImage, DEMO_PRE, true);
-            showInput(afterImageView, afterPlaceholder, afterFilenameLabel, afterDimensionLabel,
+            showInput(afterImageContainer, afterImageView, afterPlaceholder, afterFilenameLabel, afterDimensionLabel,
                     afterBufferedImage, DEMO_POST, true);
 
             logMessage("Loaded the bundled SYNTHETIC demonstration pair (Site A: computer-generated test scene, "
                     + "not real satellite imagery). It only demonstrates the pipeline and has no ground-truth label.");
-            checkReadiness();
+            inputsChanged();
         } catch (Exception e) {
             showError("Demo Load Error", "Failed to load demo pair: " + e.getMessage());
         }
     }
 
     /**
-     * "Load LEVIR-CD Pair…": the user picks an image in a split's A/ or B/ folder; A, B and label/ with
+     * "Open LEVIR-CD pair…": the user picks an image in a split's A/ or B/ folder; A, B and label/ with
      * the same file name are loaded. The chooser starts in datasets/LEVIR-CD/test/A when it exists.
      */
     @FXML
@@ -761,13 +1208,13 @@ public class DashboardController implements Initializable {
         levirPair = pair;
         groundTruthMask = loaded.groundTruth();
 
-        showInput(beforeImageView, beforePlaceholder, beforeFilenameLabel, beforeDimensionLabel,
+        showInput(beforeImageContainer, beforeImageView, beforePlaceholder, beforeFilenameLabel, beforeDimensionLabel,
                 beforeBufferedImage, pair.name(), false);
-        showInput(afterImageView, afterPlaceholder, afterFilenameLabel, afterDimensionLabel,
+        showInput(afterImageContainer, afterImageView, afterPlaceholder, afterFilenameLabel, afterDimensionLabel,
                 afterBufferedImage, pair.name(), false);
-        beforeFilenameLabel.setText(pair.name() + "  (LEVIR-CD " + pair.split() + "/A)");
-        afterFilenameLabel.setText(pair.name() + "  (LEVIR-CD " + pair.split() + "/B)");
-        String dims = String.format(Locale.ROOT, "Resolution: %d x %d px · real imagery, 0.5 m/px (LEVIR-CD)",
+        beforeFilenameLabel.setText(pair.name() + " · LEVIR-CD " + pair.split() + "/A");
+        afterFilenameLabel.setText(pair.name() + " · LEVIR-CD " + pair.split() + "/B");
+        String dims = String.format(Locale.ROOT, "%d × %d px · 0.5 m/px",
                 beforeBufferedImage.getWidth(), beforeBufferedImage.getHeight());
         beforeDimensionLabel.setText(dims);
         afterDimensionLabel.setText(dims);
@@ -783,7 +1230,7 @@ public class DashboardController implements Initializable {
             logMessage("Loaded " + pair.shortName() + " (A and B). No label/" + pair.name()
                     + " found, so no ground-truth comparison is possible for this pair.");
         }
-        checkReadiness();
+        inputsChanged();
         return true;
     }
 
@@ -797,14 +1244,17 @@ public class DashboardController implements Initializable {
         return n;
     }
 
-    private static void showInput(ImageView view, VBox placeholder, Label nameLabel, Label dimLabel,
+    private static void showInput(StackPane container, ImageView view, VBox placeholder, Label nameLabel, Label dimLabel,
                                   BufferedImage image, String name, boolean syntheticDemo) {
         view.setImage(SwingFXUtils.toFXImage(image, null));
         view.setVisible(true);
         placeholder.setVisible(false);
-        nameLabel.setText(syntheticDemo ? name + " (synthetic demo)" : name);
-        String dims = String.format("Resolution: %d x %d px", image.getWidth(), image.getHeight());
-        dimLabel.setText(syntheticDemo ? dims + " · synthetic, not satellite data" : dims);
+        if (!container.getStyleClass().contains("has-image")) {
+            container.getStyleClass().add("has-image");
+        }
+        nameLabel.setText(syntheticDemo ? name + " · synthetic demo" : name);
+        String dims = String.format(Locale.ROOT, "%d × %d px", image.getWidth(), image.getHeight());
+        dimLabel.setText(syntheticDemo ? dims + " · computer-generated, not satellite imagery" : dims);
     }
 
     /** Honest one-line description of the current inputs, written to the log and run summary. */
@@ -849,14 +1299,16 @@ public class DashboardController implements Initializable {
                         " vs " + afterBufferedImage.getWidth() + "x" + afterBufferedImage.getHeight() +
                         "). Images must be aligned to run change detection.");
                 analyzeButton.setDisable(true);
-                systemStatusLabel.setText("System: Dimension Mismatch");
+                systemStatusLabel.setText("The two images differ in size");
             } else {
                 analyzeButton.setDisable(analysisRunning);
-                systemStatusLabel.setText("System: Ready for Analysis");
+                systemStatusLabel.setText("Ready to analyse");
                 logMessage("Image dimensions verified matching: " + beforeBufferedImage.getWidth() + "x" + beforeBufferedImage.getHeight() + " px.");
             }
         } else {
             analyzeButton.setDisable(true);
+            systemStatusLabel.setText(beforeBufferedImage == null && afterBufferedImage == null
+                    ? "Load an image pair to begin" : "Waiting for the second image");
         }
     }
 
@@ -891,7 +1343,10 @@ public class DashboardController implements Initializable {
 
         logMessage("Running detection engine: " + engine.getDisplayName() + " on " + inputDescription + " ...");
         setAnalysisRunning(true);
-        systemStatusLabel.setText("System: Processing...");
+        systemStatusLabel.setText("Analysing…");
+        changeMapStatusLabel.setText("Running " + engine.getDisplayName() + "…");
+        changeMapHintLabel.setText("on " + inputShortName);
+        updateSummary();
 
         Task<AnalysisBundle> detectionTask = new Task<>() {
             @Override
@@ -929,9 +1384,12 @@ public class DashboardController implements Initializable {
         detectionTask.setOnFailed(event -> {
             Throwable error = detectionTask.getException();
             logMessage("ERROR during change detection (" + engine.getDisplayName() + "): " + error.getMessage());
-            systemStatusLabel.setText("System: Analysis Failed");
+            systemStatusLabel.setText("Analysis failed");
             setAnalysisRunning(false);
-            showError("Analysis Failure", "Error during change detection: " + error.getMessage());
+            changeMapStatusLabel.setText(lastBundle == null ? "No result yet" : changeMapStatusLabel.getText());
+            changeMapHintLabel.setText("The last analysis failed: " + error.getMessage());
+            updateSummary();
+            showError("The analysis failed", engine.getDisplayName() + " could not finish: " + error.getMessage());
         });
 
         Thread thread = new Thread(detectionTask, "landwatch-analysis");
@@ -977,14 +1435,16 @@ public class DashboardController implements Initializable {
             fxImages.put(GroundTruthView.GROUND_TRUTH, SwingFXUtils.toFXImage(bundle.groundTruthImage(), null));
             fxImages.put(GroundTruthView.ERRORS, SwingFXUtils.toFXImage(bundle.errorsImage(), null));
         }
+        resultsStale = false;
         setModeTogglesDisabled(false);
         updateGroundTruthControls(bundle);
         if (currentView instanceof GroundTruthView && !bundle.hasGroundTruth()) {
-            viewModeGroup.selectToggle(modeOverlayToggle);
+            currentView = VisualizationMode.RED_OVERLAY;
         }
-        changeMapImageView.setImage(fxImages.get(currentView));
-        changeMapImageView.setVisible(true);
-        changeMapPlaceholder.setVisible(false);
+        // A new result is what the user asked to see: leave the comparison for the current view.
+        compareActive = false;
+        viewModeGroup.selectToggle(toggleFor(currentView));
+        refreshViewer();
         resultEngineBadge.setText(bundle.engine().getShortLabel());
 
         updateMetrics(r);
@@ -1018,31 +1478,39 @@ public class DashboardController implements Initializable {
                             ? f.getName().substring(bundle.exportBaseName().length() + 1) : f.getName())
                     .collect(Collectors.joining(", "));
             logMessage("[Export] Saved to " + RESULTS_DIR.getPath() + "/" + bundle.exportBaseName() + "_*: " + parts);
+            showSaved("Saved " + bundle.savedFiles().size() + " files to " + RESULTS_DIR.getPath() + "/");
+            savedLabel.setTooltip(tooltip(RESULTS_DIR.getPath() + "/" + bundle.exportBaseName() + "_*: " + parts));
         } else {
             logMessage("WARNING: Results could not be saved to " + RESULTS_DIR.getPath() + "/: " + bundle.saveError());
+            showSaved("Not saved: " + bundle.saveError());
         }
 
-        systemStatusLabel.setText("System: Analysis Complete");
+        systemStatusLabel.setText("Analysis complete");
         setAnalysisRunning(false);
         completedAnalyses.incrementAndGet();
+        updateSummary();
         scrollToResults();
     }
 
     private void updateMetrics(EngineResult r) {
         statEngine.setText(r.getEngineName());
-        statChangePercent.setText(String.format("%.2f %%", r.getChangePercentage()));
-        statChangedPixels.setText(String.format("%,d px", r.getChangedPixels()));
-        statTotalPixels.setText(String.format("of %,d px", r.getTotalPixels()));
-        statRegions.setText(String.valueOf(r.getRegionCount()));
+        setValue(statChangePercent, String.format(Locale.ROOT, "%.2f %%", r.getChangePercentage()));
+        statChangedPixels.setText(String.format(Locale.ROOT, "%,d of %,d px", r.getChangedPixels(), r.getTotalPixels()));
+        statTotalPixels.setText("");
+        shareFraction.set(r.getTotalPixels() > 0 ? (double) r.getChangedPixels() / r.getTotalPixels() : 0);
+        setValue(statRegions, String.format(Locale.ROOT, "%,d", r.getRegionCount()));
         if (r.getOtsuThreshold() != null) {
-            statOtsu.setText(r.getOtsuThreshold() + " / 255");
-            statOtsuSub.setText("on |ΔY| luminance diff.");
+            setValue(statOtsu, r.getOtsuThreshold() + " / 255");
+            statOtsuSub.setText("on the brightness difference");
         } else {
-            statOtsu.setText("n/a");
+            setValue(statOtsu, null);
             statOtsuSub.setText("not used by this engine");
         }
-        statLatency.setText(r.getLatencyMs() + " ms");
-        statImageSize.setText(r.getWidth() + " × " + r.getHeight() + " px");
+        statOtsu.setTooltip(tooltip(r.getOtsuThreshold() != null
+                ? "Otsu's cut-off on the brightness difference |ΔY| for this pair"
+                : "Not used: only the classical baseline thresholds the brightness difference"));
+        setValue(statLatency, String.format(Locale.ROOT, "%,d ms", r.getLatencyMs()));
+        setValue(statImageSize, String.format(Locale.ROOT, "%,d × %,d px", r.getWidth(), r.getHeight()));
         setChangeLevel(r.getChangeLevel());
     }
 
@@ -1052,7 +1520,7 @@ public class DashboardController implements Initializable {
         statAreaM2.setVisible(show);
         statAreaM2.setManaged(show);
         statAreaM2.setText(show ? String.format(Locale.US,
-                "Changed area ≈ %,.0f m², assuming the LEVIR-CD ground sample distance of 0.5 m/px (0.25 m² per pixel).",
+                "≈ %,.0f m² at LEVIR-CD's 0.5 m per pixel",
                 LevirPair.areaSquareMetres(r.getChangedPixels())) : "");
     }
 
@@ -1062,11 +1530,11 @@ public class DashboardController implements Initializable {
         modeGroundTruthToggle.setDisable(!hasGt);
         modeErrorsToggle.setDisable(!hasGt);
         if (bundle == null) {
-            gtViewNote.setText("needs a LEVIR-CD pair with a label");
+            gtViewNote.setText("Label and Errors need a LEVIR-CD pair, which comes with its ground-truth label.");
         } else if (!hasGt) {
-            gtViewNote.setText("no ground-truth label for these inputs");
+            gtViewNote.setText("Label and Errors are off: these inputs have no ground-truth label.");
         } else {
-            gtViewNote.setText("label of " + bundle.levirPair().name());
+            gtViewNote.setText("Label and Errors use the ground truth of " + bundle.levirPair().name() + ".");
         }
         gtBlock.getStyleClass().remove("gt-block-inactive");
         for (Node n : List.of(gtTiles, gtCounts, gtBenchmark)) {
@@ -1077,29 +1545,28 @@ public class DashboardController implements Initializable {
         if (!hasGt) {
             gtBlock.getStyleClass().add("gt-block-inactive");
             for (Label l : List.of(gtF1, gtIoU, gtPrecision, gtRecall)) {
-                l.setText("--");
+                setValue(l, null);
             }
             gtCounts.setText("");
             gtBenchmark.setText("");
             boolean synthetic = bundle != null && bundle.syntheticInput();
-            gtNote.setText((synthetic ? "The synthetic demo pair has no ground-truth label, so there is nothing to compare with. "
-                    : "No ground-truth label for the analysed inputs. ")
-                    + "Use 'Load LEVIR-CD Pair…' to load A, B and the label, then analyse to see per-image F1, IoU, "
-                    + "precision and recall.");
+            gtNote.setText((synthetic ? "The synthetic demo pair has no label, so there is nothing to check against. "
+                    : "No label for these inputs. ")
+                    + "Open a LEVIR-CD pair to see F1, IoU, precision and recall for the image.");
             return;
         }
 
         BinaryChangeMetrics m = bundle.comparison().getMetrics();
-        gtF1.setText(String.format(Locale.ROOT, "%.4f", m.f1()));
-        gtIoU.setText(String.format(Locale.ROOT, "%.4f", m.iou()));
-        gtPrecision.setText(String.format(Locale.ROOT, "%.4f", m.precision()));
-        gtRecall.setText(String.format(Locale.ROOT, "%.4f", m.recall()));
-        gtCounts.setText(String.format(Locale.ROOT, "Pixels of this image: TP %,d · FP %,d · FN %,d · TN %,d",
-                m.getTruePositives(), m.getFalsePositives(), m.getFalseNegatives(), m.getTrueNegatives()));
+        setValue(gtF1, String.format(Locale.ROOT, "%.4f", m.f1()));
+        setValue(gtIoU, String.format(Locale.ROOT, "%.4f", m.iou()));
+        setValue(gtPrecision, String.format(Locale.ROOT, "%.4f", m.precision()));
+        setValue(gtRecall, String.format(Locale.ROOT, "%.4f", m.recall()));
+        gtCounts.setText(String.format(Locale.ROOT, "%,d px found · %,d false alarms · %,d missed",
+                m.getTruePositives(), m.getFalsePositives(), m.getFalseNegatives()));
         gtBenchmark.setText(datasetBenchmarkLine(bundle));
-        gtNote.setText("Per-image numbers for " + bundle.levirPair().name() + " only (BinaryChangeMetrics, label > 0 = "
-                + "change). They vary a lot between images and are not the dataset benchmark. LEVIR-CD labels building "
-                + "changes only.");
+        gtNote.setText("");
+        gtScopeLabel.setTooltip(tooltip("Scores for " + bundle.levirPair().name() + " only. They vary a lot "
+                + "between images and are not the benchmark (see Benchmarks). LEVIR-CD labels building changes only."));
     }
 
     /** "Dataset benchmark" line for the engine of the displayed result, parsed from the results files. */
@@ -1111,28 +1578,38 @@ public class DashboardController implements Initializable {
         boolean deep = SiameseUNetEngine.ID.equals(bundle.result().getEngineId());
         Path file = deep ? AppPaths.deepMetrics(split) : AppPaths.baselineMetrics(split);
         MetricsReport report = MetricsReport.readChangeDetection(file);
-        String prefix = "Dataset benchmark for this engine, LEVIR-CD " + split + " (all images): ";
+        String prefix = "Whole " + split + " split: ";
         if (!report.isOk()) {
             return prefix + "not available (" + (report.getStatus() == MetricsReport.Status.MISSING
                     ? file + " not found" : report.getProblem()) + ").";
         }
         OptionalDouble f1 = report.get(MetricsReport.Metric.F1);
         OptionalDouble iou = report.get(MetricsReport.Metric.IOU);
-        return prefix + String.format(Locale.ROOT, "F1 %s · IoU %s  (%s)",
+        return prefix + String.format(Locale.ROOT, "F1 %s · IoU %s",
                 f1.isPresent() ? String.format(Locale.ROOT, "%.4f", f1.getAsDouble()) : "n/a",
-                iou.isPresent() ? String.format(Locale.ROOT, "%.4f", iou.getAsDouble()) : "n/a", file);
+                iou.isPresent() ? String.format(Locale.ROOT, "%.4f", iou.getAsDouble()) : "n/a");
     }
 
     private void setChangeLevel(EngineResult.ChangeLevel level) {
         for (EngineResult.ChangeLevel l : EngineResult.ChangeLevel.values()) {
             statChangeLevel.getStyleClass().remove(l.getStyleClass());
         }
+        statChangeLevel.getStyleClass().remove("is-empty");
         if (level == null) {
-            statChangeLevel.setText("Awaiting Data");
+            statChangeLevel.setText("—");
+            statChangeLevel.getStyleClass().add("is-empty");
         } else {
-            statChangeLevel.setText(level.getLabel());
+            statChangeLevel.setText(sentenceCase(level.getLabel()));
             statChangeLevel.getStyleClass().add(level.getStyleClass());
         }
+    }
+
+    /** "HIGH (5–15 %)" → "High (5–15 %)". */
+    static String sentenceCase(String label) {
+        if (label == null || label.isEmpty()) {
+            return label;
+        }
+        return label.substring(0, 1).toUpperCase(Locale.ROOT) + label.substring(1).toLowerCase(Locale.ROOT);
     }
 
     private void setAnalysisRunning(boolean running) {
@@ -1140,6 +1617,15 @@ public class DashboardController implements Initializable {
         analysisProgressBar.setVisible(running);
         analyzeButton.setDisable(running || beforeBufferedImage == null || afterBufferedImage == null);
         engineComboBox.setDisable(running);
+        for (Button b : List.of(loadDemoButton, loadLevirButton, resetButton, uploadBeforeButton, uploadAfterButton)) {
+            b.setDisable(running);
+        }
+        analyzeButton.setText(running ? "Analysing…" : "Analyze changes");
+        if (running) {
+            compareToggle.setDisable(true);
+        } else {
+            updateCompareAvailability();
+        }
     }
 
     private void setModeTogglesDisabled(boolean disabled) {
@@ -1148,23 +1634,14 @@ public class DashboardController implements Initializable {
         modeChangeMapToggle.setDisable(disabled);
     }
 
-    /** Scrolls the page so the action bar and results are visible after an analysis. */
+    /**
+     * Scrolls back to the top of the page after an analysis: the title's finding, the inputs, the result and
+     * its measurements all share the first screen.
+     */
     public void scrollToResults() {
-        if (contentScrollPane == null || actionBar == null || contentScrollPane.getScene() == null) {
-            return;
+        if (contentScrollPane != null) {
+            contentScrollPane.setVvalue(contentScrollPane.getVmin());
         }
-        Parent root = contentScrollPane.getScene().getRoot();
-        root.applyCss();
-        root.layout();
-        Node content = contentScrollPane.getContent();
-        double scrollable = content.getLayoutBounds().getHeight() - contentScrollPane.getViewportBounds().getHeight();
-        if (scrollable <= 0) {
-            return;
-        }
-        double target = actionBar.getBoundsInParent().getMinY() - 10;
-        double fraction = Math.max(0, Math.min(1, target / scrollable));
-        contentScrollPane.setVvalue(contentScrollPane.getVmin()
-                + fraction * (contentScrollPane.getVmax() - contentScrollPane.getVmin()));
     }
 
     // ------------------------------------------------------------------
@@ -1172,14 +1649,66 @@ public class DashboardController implements Initializable {
     // ------------------------------------------------------------------
 
     private void applyView(ChangeView view, boolean log) {
-        updateLegend(view);
         Image image = fxImages.get(view);
-        if (image != null) {
-            changeMapImageView.setImage(image);
-            if (log) {
-                logMessage("Change view switched to: " + view.getDisplayName() + ".");
-            }
+        refreshViewer();
+        if (image != null && log) {
+            logMessage("Change view switched to: " + view.getDisplayName() + ".");
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Full-size view and theme
+    // ------------------------------------------------------------------
+
+    /** Opens the current result view at up to full resolution in its own window; Esc closes it. */
+    @FXML
+    public void handleEnlarge() {
+        Image image = changeMapImageView.getImage();
+        if (image == null || !changeMapImageView.isVisible() || changeMapImageView.getScene() == null) {
+            return;
+        }
+        Rectangle2D screen = Screen.getPrimary().getVisualBounds();
+        double[] size = SwipeCompareView.fit(image.getWidth(), image.getHeight(),
+                Math.min(image.getWidth(), screen.getWidth() * 0.9), Math.min(image.getHeight(), screen.getHeight() * 0.85));
+        ImageView view = new ImageView(image);
+        view.setPreserveRatio(true);
+        view.setSmooth(size[0] < image.getWidth());
+        view.setFitWidth(size[0]);
+        view.setFitHeight(size[1]);
+        StackPane root = new StackPane(view);
+        root.getStyleClass().add("root-pane");
+        Scene mainScene = changeMapImageView.getScene();
+        if (mainScene.getRoot().getStyleClass().contains("light")) {
+            root.getStyleClass().add("light");
+        }
+        Scene scene = new Scene(root, size[0] + 24, size[1] + 24);
+        scene.getStylesheets().addAll(mainScene.getStylesheets());
+        Stage stage = new Stage();
+        stage.initOwner(mainScene.getWindow());
+        String input = lastBundle != null ? lastBundle.inputShortName() : "result";
+        stage.setTitle(currentView.getDisplayName() + " · " + input + String.format(Locale.ROOT, " · %d × %d px",
+                (int) image.getWidth(), (int) image.getHeight()));
+        scene.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                stage.close();
+            }
+        });
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    /** Switches between the dark theme and the light one (for a projector in a bright room). */
+    @FXML
+    public void handleToggleTheme() {
+        Parent root = themeToggleButton.getScene().getRoot();
+        boolean light = !root.getStyleClass().contains("light");
+        if (light) {
+            root.getStyleClass().add("light");
+        } else {
+            root.getStyleClass().remove("light");
+        }
+        themeToggleButton.setText(light ? "Dark mode" : "Light mode");
+        logMessage("Switched to the " + (light ? "light" : "dark") + " theme.");
     }
 
     private void updateLegend(ChangeView view) {
@@ -1245,6 +1774,21 @@ public class DashboardController implements Initializable {
         return currentView;
     }
 
+    /** True while the before/after swipe comparison is shown. */
+    public boolean isCompareActive() {
+        return compareActive;
+    }
+
+    /** Divider position of the swipe comparison, 0 (all after) to 1 (all before). */
+    public double getSwipePosition() {
+        return swipeView.positionProperty().get();
+    }
+
+    /** The swipe comparison node (for the snapshot tool's interaction check). */
+    public SwipeCompareView getSwipeView() {
+        return swipeView;
+    }
+
     public FundamentalsPage getFundamentalsPage() {
         return fundamentalsPage;
     }
@@ -1277,7 +1821,16 @@ public class DashboardController implements Initializable {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
         alert.setHeaderText(null);
+        alert.setGraphic(null);
         alert.setContentText(content);
+        Scene scene = analyzeButton.getScene();
+        if (scene != null) {
+            alert.initOwner(scene.getWindow());
+            alert.getDialogPane().getStylesheets().addAll(scene.getStylesheets());
+            if (scene.getRoot().getStyleClass().contains("light")) {
+                alert.getDialogPane().getStyleClass().add("light");
+            }
+        }
         alert.showAndWait();
     }
 }

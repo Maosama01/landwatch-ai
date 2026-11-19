@@ -770,83 +770,104 @@ Sources: `results/eurosat/training_log.csv`, `val_metrics.txt`, `test_metrics.tx
 
 ## 9. The JavaFX dashboard
 
-The dashboard (`mvn javafx:run`, main class `com.landwatch.Launcher`) is the user-facing part of the project. It is defined in `src/main/resources/com/landwatch/ui/views/dashboard.fxml` with a dark CSS theme and controlled by `DashboardController`.
+The dashboard (`mvn javafx:run`, main class `com.landwatch.Launcher`) is the user-facing part of the project. It is defined in `src/main/resources/com/landwatch/ui/views/dashboard.fxml`, styled by `dark_theme.css` (which also holds a light variant) and controlled by `DashboardController`.
 
-**Workflow.**
+### 9.1 Design
 
-1. Load an image pair in one of three ways:
-   - **Load LEVIR-CD Pair…** loads A, B and the ground-truth label of one real LEVIR-CD image together. The chooser starts in `datasets/LEVIR-CD/test/A`.
-   - The **Browse** buttons load any co-registered pair of equal size (PNG, JPG, BMP or TIFF).
-   - **Load Demo Pair** loads the bundled synthetic pair.
-2. Choose a **detection engine** in the selector.
-3. Click **Analyze Changes**. The engine runs on a background thread, so the window stays responsive while a progress bar is shown.
-4. Inspect the result in the views and read the statistics, the per-image comparison with ground truth (when a label is loaded) and the activity log. The run is exported automatically.
-5. Optionally switch engines and analyse the same pair again to compare the classical baseline with the deep model.
+The change-detection screen answers one question first: *what changed between the two dates, where, and how much?* Everything else follows from that.
 
-**Engine selector.** Every engine implements the `ChangeDetectionEngine` interface and returns only a binary change mask (with its latency and optional extras) in an `EngineResult`. `EngineRunner` validates the inputs and checks that the returned mask has the input size. Because every view, statistic, log line and export is derived from that mask, a new engine needs no UI changes (`DetectionEngineTest.pluggableMaskOnlyEngine`). Two engines are registered:
+- **One screen.** The inputs (before over after), the result and its measurements sit side by side in one row, sized to the window, so a 1280×840 window shows the whole answer without scrolling. The result is the largest block; the changed-area figure is the largest number.
+- **The finding under the title.** After a run, the line under "Change detection" states it in words, for example "11.79 % of LEVIR-CD test/test_7.png changed, in 127 regions · F1 0.9043 against the label of this image". Before a run, the same line says what is loaded and what to do next.
+- **Colour on data only.** The chrome is a cool near-black (#0c0d0f) with surfaces one lightness step above it, no borders or shadows on cards, sentence-case labels and no emoji. The one data colour is the change map's own cyan (#22d3ee); it marks the changed share under the headline figure and the F1 column of the tables. The single primary action, **Analyze changes**, is a white pill. Status colours appear only on status: the model dot in the sidebar and the change-level pill.
+- **A light theme.** A button in the sidebar switches to a light variant with the same layout, for a projector in a bright room. All colours are named tokens on `.root`, so the switch is one style class.
 
-- **Classical baseline (Otsu differencing)** (`ClassicalBaselineEngine`) wraps `BaselineChangeDetector` (Section 6.1). Its status line reads "CPU: \|ΔY\| luminance differencing → Otsu threshold → 3×3 opening → regions ≥ 12 px".
+### 9.2 Workflow
+
+1. **Load a pair**, in any of these ways:
+   - **Open LEVIR-CD pair…** (⌘O) loads A, B and the ground-truth label of one real LEVIR-CD image. The chooser starts in `datasets/LEVIR-CD/test/A`.
+   - **Drop files** onto the frames: one image fills that frame; two images become before and after (in file-name order); one image from a LEVIR-CD `A/`, `B/` or `label/` folder loads its whole pair with the label. An empty frame also opens the file chooser on a click.
+   - **Browse…** on either frame loads any co-registered image (PNG, JPG, BMP or TIFF).
+   - **Demo pair** (⌘D) loads the bundled synthetic pair.
+2. **Choose an engine.** The classical baseline is ready at once; the deep model loads in the background and is selected automatically when it is ready, unless the user has already picked an engine. The sidebar shows its state as a dot and a line ("Deep model ready · Apple GPU").
+3. **Analyze changes** (⌘↵). The engine runs on a background thread; a thin progress bar runs above the result and the load buttons are disabled until it finishes.
+4. **Read the result.** Switch views with the segmented control (⌘1–⌘6); open the current view at full resolution in its own window with **Full size**. The measurements, the per-image comparison with the label and the "saved to results/" note update together; the activity log below records every step.
+5. **Compare engines** by choosing the other engine and analysing again. If the inputs change after a run, the title line says that the result on screen belongs to the previous inputs.
+
+### 9.3 Engines
+
+Every engine implements the `ChangeDetectionEngine` interface and returns only a binary change mask (with its latency and optional extras) in an `EngineResult`. `EngineRunner` validates the inputs and checks that the returned mask has the input size. Because every view, statistic, log line and export is derived from that mask, a new engine needs no UI changes (`DetectionEngineTest.pluggableMaskOnlyEngine`). Two engines are registered:
+
+- **Classical baseline (Otsu differencing)** (`ClassicalBaselineEngine`) wraps `BaselineChangeDetector` (Section 6.1).
 - **Deep model – Siamese U-Net** (`SiameseUNetEngine`) runs the trained FC-Siam-diff network through `DeepChangeDetector`.
-  - **Loading.** It loads `models/siamese_unet_levir` (override with `-Dlandwatch.model.dir`) in a background `javafx.concurrent.Task`. The selector shows "loading…" until the model is ready, so start-up never blocks.
-  - **Status.** Its note shows the model description, with the validation and test metrics read from `model.properties`.
+  - **Loading.** It loads `models/siamese_unet_levir` (override with `-Dlandwatch.model.dir`) in a background `javafx.concurrent.Task`, so start-up never blocks.
   - **Failure.** If the directory is missing or incomplete, or the weights fail to load, the engine stays disabled with a precise reason ("model not found at …", "no model.properties", "no *.params weights file", or the load error). It **never produces simulated output** (`SiameseUNetEngineTest`).
   - **Shutdown.** The detector is closed when the application exits, even during loading.
   - **Speed.** Inference uses MPS when available, else CPU (`-Dlandwatch.deeplearning.device`). A 1024×1024 image is processed as 16 tiles.
 
-**Views** (`VisualizationMode`; the legend colours are read from the renderer, so the legend always matches the pixels):
+### 9.4 Views
+
+The legend colours of the engine views are read from the renderer, so the legend always matches the pixels.
 
 | View | What it shows |
 |---|---|
-| Binary Mask | the raw engine output: changed pixels white, unchanged black |
-| Red Overlay | the post-event image with changed pixels tinted red and an amber bounding box around each connected change region |
-| Change Map | a thematic map: the post-event image as dimmed grayscale context, change regions filled cyan with a yellow outline |
-| Ground Truth | the LEVIR-CD label in black and white (only when a label is loaded) |
-| Errors vs GT | true positives yellow, false positives vermillion, false negatives sky blue and true negatives dimmed (colour-blind-safe Okabe–Ito palette; only with a label) |
+| Overlay | the after image with changed pixels tinted red and an amber box around each connected change region |
+| Mask | the raw engine output: changed pixels white, unchanged black |
+| Change map | the after image as dimmed grayscale context, change regions filled cyan with a yellow outline |
+| Label | the LEVIR-CD ground-truth label (only when a label is loaded) |
+| Errors | true positives yellow, false positives vermillion, false negatives sky blue, true negatives dimmed (colour-blind-safe Okabe–Ito palette; only with a label) |
+| Compare | a before/after swipe: the before image left of a draggable divider, the after image right of it, at the same place (mouse or arrow keys); available as soon as two images of equal size are loaded, before any analysis |
 
-**Comparison with ground truth.** When a label is loaded, a block marked **PER IMAGE** shows the current engine's F1, IoU, precision, recall and TP/FP/FN/TN for that image. The values are computed with `BinaryChangeMetrics`, with any label value > 0 counted as change. The engine's **dataset** benchmark, parsed from `results/`, appears next to it, so per-image and dataset numbers are never confused. For LEVIR-CD pairs the changed area is also shown in m², explicitly labelled as assuming LEVIR-CD's 0.5 m/pixel.
+### 9.5 Measurements and the comparison with ground truth
 
-**Sidebar pages.**
+The measurements column shows the engine and the input, the changed area as a percentage with its share drawn at the true ratio, the changed and total pixel counts, the number of 8-connected regions, the change level, the image size, the engine time and the Otsu threshold (a grey dash for engines that do not use one). For LEVIR-CD pairs it adds the area in m² at LEVIR-CD's 0.5 m per pixel.
+
+When a label is loaded, **Against the label** shows F1, IoU, precision and recall for that image (`BinaryChangeMetrics`, label value > 0 = change) with the found, false-alarm and missed pixel counts, and the engine's whole-split result parsed from `results/`, so per-image and dataset numbers are never confused.
+
+### 9.6 Honest wording
+
+- The demo pair is labelled "synthetic demo · computer-generated, not satellite imagery" under both images and in the title line, and the log says it is a computer-generated test scene.
+- The change level's tooltip reads "Rule of thumb from the share of changed pixels only … Not a verified encroachment assessment."
+- The changed-area tooltip says that areas are in pixels, with square metres only where the resolution is known.
+- Missing values are a grey dash, never a zero or a placeholder figure; unavailable engines are disabled and say why.
+- The per-image block is marked "this image only"; its tooltip says that per-image scores vary a lot and are not the benchmark.
+
+### 9.7 Sidebar pages
 
 | Page | Content |
 |---|---|
-| Change Detection | the analysis view described above |
-| Model Benchmarks | baseline vs. deep model on LEVIR-CD val and test (F1, IoU, precision, recall, κ), plus EuroSAT. Every value is parsed from `results/` when the page opens; a missing file shows "not available", never a hard-coded number |
-| NN Fundamentals | buttons that run XOR training, the gradient check and the learning-rules demo live on a background thread, with the same seeds as the tests |
-| Failure Analysis | the ten worst baseline test images by per-image F1 (from `baseline_test_per_image.csv`), each with an "Open pair" button, plus the documented limitations |
-| About / Runtime | Java, JavaFX, DJL and PyTorch versions, inference device, model directory and status, whether the dataset and each results file were found |
+| Change detection | the analysis screen described above |
+| Failure analysis | the ten worst baseline test images by per-image F1 (from `baseline_test_per_image.csv`), each with an "Open pair" button, plus the documented limitations |
+| Benchmarks | baseline vs. deep model on LEVIR-CD val and test (F1, IoU, precision, recall, κ), plus EuroSAT. Every value is parsed from `results/` when the page opens; a missing file shows "not available", never a hard-coded number |
+| NN fundamentals | buttons that run XOR training, the gradient check and the learning-rules demo live on a background thread, with the same seeds as the tests |
+| About and runtime | Java, JavaFX, DJL and PyTorch versions, inference device, model directory and status, whether the dataset and each results file were found; paths under the home folder are shown with `~` |
 
-**Statistics panel.** It shows the engine that produced the result, the changed area as a percentage of all pixels, changed and total pixel counts, the number of 8-connected change regions, the Otsu threshold (baseline only; "n/a" for other engines), the engine latency, the image size and a change level.
+### 9.8 Export, activity log and screenshots
 
-**Honest wording.** The interface avoids claims it cannot support:
+Each run writes four files to `results/` with the prefix `landwatch_<engine-id>_<yyyyMMdd_HHmmss>`: `_binary_mask_bw.png`, `_red_overlay.png`, `_thematic_change_map.png` and `_summary.txt`. A suffix `-2`, `-3`, … prevents two runs in the same second from overwriting each other. These per-run exports are excluded from Git. The activity log records every step with a timestamp.
 
-- The demo pair is labelled "(synthetic demo)" and "synthetic, not satellite data", and the log says it is a computer-generated test scene.
-- The change level is labelled "Change level (heuristic)", with the explanation "Rule of thumb from the share of changed pixels only: < 1 % low, 1–5 % moderate, 5–15 % high, ≥ 15 % severe. Not a verified encroachment assessment."
-- Under the statistics: "Areas are given in pixels: no ground-sample-distance calibration is applied."
-- Unavailable engines are disabled and state why.
-- When the engine is switched after a run, the log says which engine produced the results on screen.
-
-**Export and activity log.** Each run writes four files to `results/` with the prefix `landwatch_<engine-id>_<yyyyMMdd_HHmmss>`: `_binary_mask_bw.png`, `_red_overlay.png`, `_thematic_change_map.png` and `_summary.txt`. A suffix `-2`, `-3`, … prevents two runs in the same second from overwriting each other. These per-run exports are excluded from Git. The activity log records every step with a timestamp.
-
-**Screenshots.** `com.landwatch.ui.DashboardSnapshotTool` (in the test sources, not run by Surefire) loads the real FXML, controller and stylesheet off-screen. It drives the application through the synthetic demo, both engines on the real LEVIR-CD pair `test_7`, and every sidebar page. It saves the snapshots, including a minimum-size 1100×760 check, into `results/ui_snapshots/` and reports any truncated label.
-
-**Screenshots** (`results/ui_snapshots/`, rendered from the real application with the final trained model; per-image numbers apply to that image only):
+`com.landwatch.ui.DashboardSnapshotTool` (in the test sources, not run by Surefire) loads the real FXML, controller and stylesheet off-screen and drives the application through the synthetic demo, both engines on the real LEVIR-CD pair `test_7`, the compare view, the light theme and every sidebar page. It saves the snapshots, including a minimum-size 1100×760 check, into `results/ui_snapshots/` and reports any truncated label (none in the current set).
 
 | File | Shows |
 |---|---|
-| `01_demo_synthetic_classical_overlay.png` | the synthetic demo pair with the classical engine; ground-truth views disabled, with a note |
-| `03_levir_test_7_deep_overlay.png` | the deep model on LEVIR-CD `test_7`, red overlay |
+| `00_startup_model_loading.png` | the empty screen while the deep model loads |
+| `01_demo_synthetic_classical_overlay.png` | the synthetic demo pair with the classical engine; Label and Errors disabled, with a note |
+| `02_levir_test_7_compare_before_after.png` | the before/after swipe on LEVIR-CD `test_7` |
+| `03_levir_test_7_deep_overlay.png` | the deep model on `test_7`, overlay view |
 | `04_levir_test_7_deep_ground_truth.png` | the ground-truth label of `test_7` |
-| `05_levir_test_7_deep_errors.png` | the deep model's errors against ground truth: per-image F1 0.9043, IoU 0.8254 |
-| `07_levir_test_7_classical_errors.png` | the classical baseline's errors on the same pair: per-image F1 0.2567, IoU 0.1473 |
-| `08_page_model_benchmarks.png` | the Model Benchmarks page with all values read from `results/` |
-| `11_page_nn_fundamentals_learning_rules.png` | the NN Fundamentals page after running the demos live |
+| `05_levir_test_7_deep_errors.png` | the deep model's errors against the label: per-image F1 0.9043, IoU 0.8254 |
+| `06_levir_test_7_classical_overlay.png`, `07_levir_test_7_classical_errors.png` | the classical baseline on the same pair: per-image F1 0.2567, IoU 0.1473 |
+| `08_page_model_benchmarks.png` | the Benchmarks page with all values read from `results/` |
+| `10_page_nn_fundamentals.png`, `11_page_nn_fundamentals_learning_rules.png` | the NN fundamentals page after running the demos live |
 | `12_page_failure_analysis.png` | the baseline's worst test images |
 | `13_page_about_runtime.png` | runtime versions, device and model status |
-| `14_min_size_1100x760_levir_deep_errors.png`, `15_min_size_1100x760_benchmarks.png` | the minimum window size, with no truncated labels |
+| `14_min_size_1100x760_levir_deep_errors.png`, `15_min_size_1100x760_benchmarks.png` | the minimum window size |
+| `16_light_theme_levir_test_7_deep_errors.png` | the errors view in the light theme |
 
 ![Deep model errors view on LEVIR-CD test_7](results/ui_snapshots/05_levir_test_7_deep_errors.png)
 
-![Model benchmarks page](results/ui_snapshots/08_page_model_benchmarks.png)
+![Before/after swipe on LEVIR-CD test_7](results/ui_snapshots/02_levir_test_7_compare_before_after.png)
+
+![Benchmarks page](results/ui_snapshots/08_page_model_benchmarks.png)
 
 ---
 
@@ -876,7 +897,7 @@ The fundamentals, geospatial and evaluation packages depend only on the JDK. Onl
 
 The JUnit 5 suite mirrors the main packages.
 
-The full suite has **248 tests**, and `mvn clean test` passes with 0 failures, 0 errors and 0 skipped (Java 17.0.21.1, Apple M3, LEVIR-CD patches present).
+The full suite has **251 tests**, and `mvn clean test` passes with 0 failures, 0 errors and 0 skipped (Java 17.0.21.1, Apple M3, LEVIR-CD patches present).
 
 | Area | Tests |
 |---|---|
@@ -886,8 +907,8 @@ The full suite has **248 tests**, and `mvn clean test` passes with 0 failures, 0
 | Evaluation (metrics, LEVIR-CD reader, benchmark, multiclass) | 29 |
 | LEVIR-CD deep learning | 30 |
 | EuroSAT classifier | 19 |
-| Dashboard (UI, engines, pages, data) | 49 |
-| **Total** | **248** |
+| Dashboard (UI, engines, pages, data) | 52 |
+| **Total** | **251** |
 
 | Area | Test classes | Examples of what is checked |
 |---|---|---|
@@ -898,7 +919,7 @@ The full suite has **248 tests**, and `mvn clean test` passes with 0 failures, 0
 | Evaluation | `BinaryChangeMetricsTest`, `LevirCdPairReaderTest`, `BaselineBenchmarkTest` | hand-computed metrics, "always no change" scores 0 F1, 156/254 binarisation, natural file order, the sweep refuses the test split |
 | Deep learning | `FcSiamDiffTest`, `LossAndMetricsTest`, `DataPipelineTest`, `TinyOverfitTest`, `SaveLoadRoundTripTest`, `DeepChangeDetectorTest`, `DisplayPathTest` | output shape, exact parameter count, order symmetry, BCE against hand values, D4 alignment, overfitting a tiny batch, identical outputs after save/load, tiling equals per-tile prediction, result files show paths relative to the project |
 | EuroSAT | `EuroSatSplitTest`, `EuroSatResNetTest`, `EuroSatClassifierTest`, `EuroSatPipelineTest`, `MulticlassMetricsTest` | stratified split without overlap, (N,10) output, residual block shapes and projection shortcut, exact parameter count, save/load round trip, hand-computed multiclass metrics |
-| UI | `MainAppTest`, `ChangeVisualizationSetTest`, `ResultExporterTest`, `DetectionEngineTest`, `SiameseUNetEngineTest`, `GroundTruthComparisonTest`, `MetricsReportTest`, `LevirPairTest`, `PerImageResultsTest`, `FundamentalsDemosTest`, `AppPathsTest` | Java 17 runtime, resources on the classpath, no overwrite on export, a missing or corrupt model leaves the deep engine unavailable with a precise reason, a tiny real model loads and predicts, per-image metrics, parsing of results files (good, missing, malformed), pair loading |
+| UI | `MainAppTest`, `ChangeVisualizationSetTest`, `ResultExporterTest`, `DetectionEngineTest`, `SiameseUNetEngineTest`, `GroundTruthComparisonTest`, `MetricsReportTest`, `LevirPairTest`, `PerImageResultsTest`, `FundamentalsDemosTest`, `AppPathsTest`, `ImageFitTest` | Java 17 runtime, resources on the classpath, no overwrite on export, a missing or corrupt model leaves the deep engine unavailable with a precise reason, a tiny real model loads and predicts, per-image metrics, parsing of results files (good, missing, malformed), pair loading |
 
 Tests that need the real LEVIR-CD patches (`DataPipelineTest.realSplitsHaveTheDocumentedSizesAndDoNotOverlap`, `TinyOverfitTest.lossDropsOnEightRealTrainingPatches`) use JUnit assumptions and are skipped when the data is absent, so the suite also passes on a fresh clone.
 
