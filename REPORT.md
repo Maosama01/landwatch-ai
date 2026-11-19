@@ -952,6 +952,7 @@ Tests that need the real LEVIR-CD patches (`DataPipelineTest.realSplitsHaveTheDo
 4. **The test split is protected in code** (Section 7.4): the val-only sweep refuses `test`, and training never reads test images.
 5. **No simulated output.** An unavailable engine raises an error instead of returning a placeholder mask.
 6. **Synthetic data is always labelled** as synthetic, in the UI and in this report.
+7. **Licence.** The project's own code and documentation are released under the MIT licence (`LICENSE`). The datasets keep their own terms; the committed change-detection weights were trained on LEVIR-CD and are therefore subject to its research-use terms as well.
 
 ---
 

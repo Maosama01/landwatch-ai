@@ -87,6 +87,7 @@ Every dashboard engine returns only a binary mask; all views, statistics and exp
 
 ```
 .
+├── LICENSE                         MIT licence for this project's code and documentation
 ├── pom.xml                         Maven build: Java 17, JavaFX 17.0.10, JUnit 5.10.2, DJL 0.40.0 (PyTorch engine)
 ├── REPORT.md                       full academic project report
 ├── python_dataprep/
@@ -417,6 +418,6 @@ More views: [overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png), [g
 - **EuroSAT**: P. Helber, B. Bischke, A. Dengel and D. Borth, "EuroSAT: A Novel Dataset and Deep Learning Benchmark for Land Use and Land Cover Classification", *IEEE JSTARS* 12(7), 2019. Sentinel-2, 27,000 labelled 64×64 patches in 10 classes (RGB version used). Zenodo record 7711810, MIT licence. <https://github.com/phelber/EuroSAT>
 - **FC-Siam-diff**: R. Caye Daudt, B. Le Saux and A. Boulch, "Fully Convolutional Siamese Networks for Change Detection", ICIP 2018. Re-implemented here in Java with DJL and trained from scratch.
 - **Software**: OpenJFX, Deep Java Library (DJL) with the PyTorch engine, JUnit 5, Apache Maven, Pillow. Each is used under its own licence.
-- **Code licence**: no LICENSE file has been added to this repository yet.
+- **Licence**: this project's source code and documentation are released under the [MIT licence](LICENSE). It covers this project's own work only. The LEVIR-CD and EuroSAT images are not in the repository and keep their own terms, and the committed FC-Siam-diff weights were trained on LEVIR-CD, so any use of them should also respect LEVIR-CD's research-use terms.
 
 To cite the methods behind this project, see the reference list in [REPORT.md](REPORT.md#14-references).
