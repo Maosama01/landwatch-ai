@@ -17,8 +17,9 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <p>Each record is {@code data = NDList(before (3,H,W), after (3,H,W))} and
  * {@code labels = NDList(mask (1,H,W))}; DJL's default batchifier stacks records into
- * (N,3,H,W) / (N,1,H,W) batches. Images are decoded from PNG on demand (the whole training split
- * would need about 3 GB as floats, too much for an 8 GB laptop), normalised with the TRAIN
+ * (N,3,H,W) / (N,1,H,W) batches. Images are decoded from PNG on demand (holding the whole training
+ * split in memory would take about 3.3 GB even as 8-bit pixels, or about 13 GB as float32 - too much
+ * for an 8 GB laptop), normalised with the TRAIN
  * statistics, and - for the training split only - augmented with a random D4 transform (flips and
  * 90-degree rotations) that is applied identically to A, B and the mask.</p>
  */

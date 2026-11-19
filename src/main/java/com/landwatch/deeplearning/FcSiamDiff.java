@@ -64,8 +64,8 @@ import java.util.Arrays;
  *       B's bottleneck); and upsampling is nearest-neighbour 2x upsampling followed by a 3x3
  *       convolution instead of a transposed convolution, because DJL 0.40's PyTorch engine does
  *       not implement the deconvolution operator ({@code UnsupportedOperationException}).</li>
- *   <li>With the default widths the model has about 1.4 million parameters (see
- *       {@code FcSiamDiffTest} for the exact count).</li>
+ *   <li>With the default widths the model has 1,348,785 trainable parameters (about 1.35 million,
+ *       matching the paper); {@code FcSiamDiffTest} asserts the exact count.</li>
  * </ul>
  */
 public final class FcSiamDiff extends AbstractBlock {

@@ -147,7 +147,7 @@ class BaselineChangeDetectorTest {
     }
 
     @Test
-    @DisplayName("End-to-end verification with bundled satellite demo pair")
+    @DisplayName("End-to-end verification with the bundled synthetic demo pair")
     void testRealDemoPairExecution() throws Exception {
         URL preUrl = getClass().getResource("/com/landwatch/sample_data/siteA_pre.bmp");
         URL postUrl = getClass().getResource("/com/landwatch/sample_data/siteA_post.bmp");
