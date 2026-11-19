@@ -12,14 +12,16 @@ LANDWATCH AI takes two co-registered images of the same place, taken on differen
 
 ## Key results
 
-LEVIR-CD, pixel-level metrics for the *change* class from one global confusion matrix over all full-resolution (1024×1024) image pairs of the split. Values are copied from the result files (4 decimals, as printed there).
+LEVIR-CD, pixel-level metrics for the *change* class from one global confusion matrix over the whole split. Values are copied from the result files (4 decimals, as printed there). The baseline runs on the full 1024×1024 images and the deep model on their 256×256 tiles; both cover exactly the same pixels (the test split has 6,837,404 true change pixels in both evaluations).
 
 | Model | Split | Change F1 | Change IoU | Precision | Recall | Cohen's κ | Source |
 |---|---|---|---|---|---|---|---|
 | Classical baseline (luminance difference + Otsu, `minRegionSize` = 12) | val (64 pairs) | 0.0941 | 0.0494 | 0.0573 | 0.2625 | 0.0270 | `results/benchmarks/baseline_val_metrics.txt` |
-| Classical baseline (same, untouched defaults) | test (128 pairs) | 0.1008 | 0.0531 | 0.0633 | 0.2480 | 0.0214 | `results/benchmarks/baseline_test_metrics.txt` |
+| Classical baseline (same, untouched defaults) | **test** (128 pairs) | 0.1008 | 0.0531 | 0.0633 | 0.2480 | 0.0214 | `results/benchmarks/baseline_test_metrics.txt` |
+| FC-Siam-diff (DJL, threshold 0.80 tuned on val) | val (1,024 patches) | 0.8554 | 0.7473 | 0.8548 | 0.8559 | 0.8490 | `results/deeplearning/val_metrics.txt` |
+| FC-Siam-diff (same model, evaluated once) | **test** (2,048 patches) | **0.8548** | **0.7465** | 0.8600 | 0.8497 | 0.8471 | `results/deeplearning/test_metrics.txt` |
 
-<!-- PENDING:LEVIR_COMPARISON -->
+On the held-out test split the trained Siamese network raises change F1 from 0.1008 to 0.8548 and IoU from 0.0531 to 0.7465. Its val and test scores differ by only 0.0006 F1, so tuning the checkpoint and threshold on val did not overfit.
 
 Neural-network fundamentals (plain Java, no libraries):
 
@@ -39,7 +41,7 @@ Neural-network fundamentals (plain Java, no libraries):
 - **Neural-network fundamentals from scratch.** McCulloch–Pitts and sigmoid neurons, dense layers, MLP, backpropagation, SGD / batch GD / momentum / Nesterov (true lookahead gradient), central-difference gradient checking.
 - **Classic learning rules.** Hebbian, Oja, competitive (winner-take-all), perceptron, LMS (Widrow–Hoff) and a small Boltzmann machine trained with Gibbs sampling.
 - **Deep change detection (DJL + PyTorch).** FC-Siam-diff with a shared encoder and |enc(A) − enc(B)| skip connections (1,348,785 trainable parameters), weighted BCE + soft Dice loss, D4 flip/rotation augmentation, train-only normalisation, a decision threshold tuned on val, and tiled inference with mirror padding for images of any size. Runs on CPU or the Apple-silicon GPU (MPS).
-- **JavaFX dashboard.** Before/after loading, an engine selector, three views (binary mask, red overlay, thematic change map), pixel statistics, an audit log and export of every run.
+- **JavaFX dashboard.** Choose between the classical baseline and the trained deep model (loaded in the background) and run either on the same pair. Views: binary mask, red overlay and thematic change map, plus ground truth and an error map (TP / FP / FN) when a real LEVIR-CD pair is loaded. Per-image F1 / IoU / precision / recall against ground truth, pixel statistics, an audit log and export of every run. Sidebar pages: Model Benchmarks (read from the result files at runtime), NN Fundamentals (runs XOR, the gradient check and the learning-rules demo live), Failure Analysis (the baseline's worst test images) and About / Runtime.
 
 ---
 
@@ -60,7 +62,7 @@ flowchart LR
         GEO["geospatial<br/>BaselineChangeDetector<br/>(Otsu differencing)"]
         EVAL["evaluation<br/>BinaryChangeMetrics,<br/>BaselineBenchmark, sweep"]
         DL["deeplearning<br/>FcSiamDiff, BceDiceLoss,<br/>Train / Evaluate / Predict,<br/>DeepChangeDetector"]
-        UI["ui (JavaFX)<br/>DashboardController,<br/>engine selector, 3 views"]
+        UI["ui (JavaFX)<br/>DashboardController,<br/>engine selector, views, pages"]
     end
 
     RAW -->|"full-resolution pairs"| EVAL
@@ -68,13 +70,15 @@ flowchart LR
     TILE -->|"processed_256 + CSVs"| DL
     DL -->|"BinaryChangeMetrics"| EVAL
     UI -->|"ClassicalBaselineEngine"| GEO
-    UI -.->|"SiameseUNetEngine hook"| DL
+    UI -->|"SiameseUNetEngine<br/>(trained model)"| DL
+    UI -->|"per-image metrics"| EVAL
+    UI -->|"live demos"| FUND
     EVAL --> RB["results/benchmarks"]
     DL --> RD["models/ and results/deeplearning"]
     FUND --> RF["results/fundamentals"]
 ```
 
-Every dashboard engine returns only a binary mask; all views, statistics and exports are derived from that mask, so a new engine plugs in without UI changes. In the code at this commit the deep-model slot (`SiameseUNetEngine`) is a placeholder that reports "no trained model loaded" and refuses to run; the trained network is used through the command-line tools below.
+Every dashboard engine returns only a binary mask; all views, statistics and exports are derived from that mask, so a new engine plugs in without UI changes. The deep engine (`SiameseUNetEngine`) loads `models/siamese_unet_levir` (override with `-Dlandwatch.model.dir=...`) on a background thread. If the model is missing or fails to load it stays disabled and says exactly why; it never produces simulated output.
 
 ---
 
@@ -94,8 +98,11 @@ Every dashboard engine returns only a binary mask; all views, statistics and exp
 │   └── processed_256/
 │       ├── preparation_report.txt
 │       └── metadata/{train,val,test,all}_patches.csv
+├── models/
+│   └── siamese_unet_levir/         trained FC-Siam-diff weights (5.4 MB) + model.properties
 ├── results/
 │   ├── benchmarks/                 baseline val/test metrics, per-image CSVs, val-only minRegion sweep
+│   ├── deeplearning/               training log, val threshold sweep, val/test metrics, device benchmark, test_7 example
 │   ├── fundamentals/               XOR, gradient-check and learning-rules output
 │   └── ui_snapshots/               dashboard screenshots
 └── src/
@@ -111,7 +118,7 @@ Every dashboard engine returns only a binary mask; all views, statistics and exp
     └── test/java/com/landwatch/    JUnit 5 tests mirroring the main packages
 ```
 
-Created locally when you run the tools (not part of the repository): `datasets/LEVIR-CD/{train,val,test}` and `processed_256/{train,val,test}` image folders, `datasets/EuroSAT/`, `models/siamese_unet_levir/` (trained weights + `model.properties`), `results/deeplearning/`, and per-run dashboard exports `results/landwatch_*`.
+Created locally when you run the tools (not part of the repository): the `datasets/LEVIR-CD/{train,val,test}` and `processed_256/{train,val,test}` image folders, the EuroSAT images under `datasets/EuroSAT/`, and per-run dashboard exports `results/landwatch_*`. The trained model **is** included, so the dashboard's deep engine works right after cloning.
 
 ---
 
@@ -121,13 +128,13 @@ Created locally when you run the tools (not part of the repository): `datasets/L
 |---|---|---|
 | JDK | 17 | everything in Java (the build targets `--release 17`) |
 | Maven | 3.9+ | build, tests, running the app |
-| Python 3 | with Pillow and NumPy | dataset inspection and tiling |
+| Python 3 | with Pillow | dataset inspection and tiling |
 
 - On first use, DJL downloads the native PyTorch library (libtorch, about 200 MB) into `~/.djl.ai`. This happens on the first deep-learning test or command, so the first run needs an internet connection.
 - On Apple-silicon Macs the deep model can use the GPU through PyTorch's MPS backend (`--device auto` picks MPS when it works, otherwise CPU).
 
 ```bash
-python3 -m pip install Pillow numpy
+python3 -m pip install Pillow
 ```
 
 ---
@@ -185,7 +192,10 @@ Tests that read real LEVIR-CD patches are skipped automatically (JUnit assumptio
 mvn javafx:run
 ```
 
-Click **Load Demo Pair** and **Analyze Changes** to run the pipeline on the bundled pair. That pair (`src/main/resources/com/landwatch/sample_data/siteA_*.bmp`) is a **synthetic, computer-generated 400×300 scene, not satellite imagery**; it only exercises the pipeline end to end. Use **Browse Before...** / **Browse After...** for your own co-registered pair of equal size (PNG, JPG, BMP or TIFF).
+- **Real data:** click **Load LEVIR-CD Pair…** and pick any image in `datasets/LEVIR-CD/test/A` (or `B`/`label`). A, B and the ground-truth label load together. Choose an engine, click **Analyze Changes**, and switch to the **Ground Truth** and **Errors vs GT** views. The per-image F1 / IoU / precision / recall appear next to the engine's dataset benchmark. Switch engines and analyse again to compare the classical baseline and the deep model on the same pair.
+- **Demo:** **Load Demo Pair** loads the bundled pair (`src/main/resources/com/landwatch/sample_data/siteA_*.bmp`). It is a **synthetic, computer-generated 400×300 scene, not satellite imagery**, and has no ground truth.
+- **Your own images:** **Browse Before...** / **Browse After...** accept any co-registered pair of equal size (PNG, JPG, BMP or TIFF).
+- Options: `mvn javafx:run -Dlandwatch.model.dir=<dir> -Dlandwatch.deeplearning.device=cpu|mps|auto -Dlandwatch.dataset.dir=<LEVIR-CD dir>`.
 
 ### Classical baseline benchmark (needs the full-resolution LEVIR-CD images)
 
@@ -251,7 +261,48 @@ The baseline flags 19.9656 % of test pixels as change while only 5.0943 % truly 
 
 ### Deep model (FC-Siam-diff) on LEVIR-CD
 
-<!-- PENDING:LEVIR_DL_RESULTS -->
+Sources: `results/deeplearning/{training_log.csv, val_threshold_sweep.csv, val_metrics.txt, test_metrics.txt, device_benchmark.txt}` and `models/siamese_unet_levir/model.properties`.
+
+**Training run.** All 7,120 train patches, batch 8, Adam (lr 1e-3, cosine decay), weighted BCE (pos_weight 4.56) + soft Dice, D4 augmentation, seed 42, on the Apple M3 GPU (MPS) via DJL 0.40.0 / PyTorch 2.7.1. The run stopped after 7 of 13 planned epochs when its 75-minute time budget ran out (67.0 min). Val F1 was still rising, so the model is under-trained rather than converged.
+
+| Epoch | Train loss | Val F1 (tuned t) | Val IoU | Best threshold |
+|---|---|---|---|---|
+| 1 | 0.81993 | 0.7477 | 0.5970 | 0.55 |
+| 2 | 0.58860 | 0.7813 | 0.6411 | 0.55 |
+| 3 | 0.49564 | 0.8135 | 0.6857 | 0.75 |
+| 4 | 0.43725 | 0.8177 | 0.6916 | 0.40 |
+| 5 | 0.39443 | 0.8348 | 0.7164 | 0.45 |
+| 6 | 0.36595 | 0.8469 | 0.7345 | 0.80 |
+| **7** (selected) | 0.33654 | **0.8554** | **0.7473** | **0.80** |
+
+**Final evaluation** (epoch-7 checkpoint, threshold 0.80; the test split was evaluated exactly once):
+
+| Split | TP | FP | FN | TN | Precision | Recall | F1 | IoU | Macro F1 | κ | Pixel acc. |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| val | 2,410,469 | 409,387 | 405,799 | 63,883,209 | 0.8548 | 0.8559 | 0.8554 | 0.7473 | 0.9245 | 0.8490 | 0.9879 |
+| test | 5,809,506 | 945,411 | 1,027,898 | 126,434,913 | 0.8600 | 0.8497 | 0.8548 | 0.7465 | 0.9235 | 0.8471 | 0.9853 |
+
+At the untuned threshold 0.50, test F1 would be 0.8479, so the val-tuned threshold adds about 0.007 F1. F1 is flat (0.8546–0.8554) for thresholds 0.70–0.85.
+
+**Speed.**
+- Training: one step at batch 8 takes 351.3 ms on MPS against 2,456.0 ms on CPU, about 7× faster. CPU and MPS logits for the same weights differ by at most 1.5e-4.
+- Inference: during the test run, the median per 256×256 patch was 55.4 ms on MPS and 53.3 ms on CPU over 50 patches. A full 1024×1024 image (16 tiles) took 506 ms on MPS.
+- These timings were measured while other jobs loaded the machine and are indicative only.
+
+**Example image** (`results/deeplearning/examples/`, LEVIR-CD `test_7`, full 1024×1024 via tiled inference): F1 0.8938, IoU 0.8080 on this single image. It is one illustration, already counted inside the test score above, not a separate result.
+
+### Baseline vs. deep model (LEVIR-CD test)
+
+| | Classical baseline | FC-Siam-diff | Change |
+|---|---|---|---|
+| Change F1 | 0.1008 | 0.8548 | +0.7540 |
+| Change IoU | 0.0531 | 0.7465 | +0.6934 |
+| Precision | 0.0633 | 0.8600 | +0.7967 |
+| Recall | 0.2480 | 0.8497 | +0.6017 |
+| Cohen's κ | 0.0214 | 0.8471 | +0.8257 |
+| Pixels flagged as change | 26,797,321 (19.97 %) | 6,754,917 (5.03 %) | true change: 6,837,404 (5.09 %) |
+
+The baseline flags about four times as many pixels as truly changed, and about 94 % of its detections are false alarms. The learned model flags almost exactly the true amount of change, and 86 % of its detections are correct. Learned bi-temporal features separate building change from illumination, season and registration noise far better than a fixed brightness-difference rule.
 
 ### EuroSAT land-use classification
 
