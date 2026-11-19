@@ -1,0 +1,11 @@
+Predicted mask: results/deeplearning/examples/test_7_mask.png (1024x1024)
+Ground truth  : datasets/LEVIR-CD/test/label/test_7.png (1024x1024, value > 0 = change)
+Confusion matrix (pixels): TP=105250  FP=16408  FN=8595  TN=918323  (total 1048576)
+Change precision : 0.8651
+Change recall    : 0.9245
+Change F1        : 0.8938
+Change IoU       : 0.8080
+Macro F1         : 0.9402
+Mean IoU         : 0.8908
+Cohen's kappa    : 0.8804
+Pixel accuracy   : 0.9762  (misleading alone: classes are imbalanced)

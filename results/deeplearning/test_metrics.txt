@@ -1,0 +1,23 @@
+LandWatch AI - FC-Siam-diff change detection, evaluation on LEVIR-CD TEST split
+Generated: 2026-11-19T21:42:00.369457
+Model: models/siamese_unet_levir
+Patches: 2048 of 256x256 (datasets/LEVIR-CD/processed_256/metadata/test_patches.csv)
+Decision threshold: 0.8 (tuned on VAL during training)
+Inference device: mps(0), DJL 0.40.0 / PyTorch 2.7.1
+Metrics: global pixel confusion matrix over all patches (com.landwatch.evaluation.BinaryChangeMetrics)
+
+Confusion matrix (pixels): TP=5809506  FP=945411  FN=1027898  TN=126434913  (total 134217728)
+Change precision : 0.8600
+Change recall    : 0.8497
+Change F1        : 0.8548
+Change IoU       : 0.7465
+Macro F1         : 0.9235
+Mean IoU         : 0.8655
+Cohen's kappa    : 0.8471
+Pixel accuracy   : 0.9853  (misleading alone: classes are imbalanced)
+
+For reference only, at the untuned threshold 0.50: precision 0.8093, recall 0.8903, F1 0.8479, IoU 0.7359
+
+Inference latency per 256x256 patch on mps(0) (predictProbabilities + threshold, batch of 1, excluding 5 warm-up calls, n=2043): mean 65.7 ms, median 55.4 ms, p95 126.8 ms
+Inference latency per 256x256 patch on cpu() [separate run on the first 50 patches, for machines without MPS] (predictProbabilities + threshold, batch of 1, excluding 5 warm-up calls, n=45): mean 94.1 ms, median 53.3 ms, p95 419.1 ms
+Total evaluation wall time (incl. PNG decoding): 173.1 s

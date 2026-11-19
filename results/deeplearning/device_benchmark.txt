@@ -1,0 +1,10 @@
+# DeviceBenchmark 8 12 256 (batch 8, 12 steps, 256x256), run 2026-11-19 21:42:15; machine load before run: 13.94 95.47 84.00
+DJL 0.40.0 / PyTorch 2.7.1
+batch=8 steps=12 patch=256x256
+MPS usable: true
+[cpu()] ms/step (excluding 2 warm-up) = 2456.0 | loss first=2.2284 last=0.8516 | outputs finite=true
+[cpu()] loss trace: 2.2284 1.6443 1.3051 1.1885 1.1035 1.0456 1.0043 0.9697 0.9369 0.9076 0.8792 0.8516 
+[mps(0)] ms/step (excluding 2 warm-up) = 351.3 | loss first=1.6362 last=0.8199 | outputs finite=true
+[mps(0)] loss trace: 1.6362 1.2825 1.1791 1.0921 1.0413 0.9963 0.9591 0.9245 0.8951 0.8686 0.8433 0.8199 
+Cross-device check (CPU-trained weights, inference on CPU vs MPS): max |diff| of logits = 0.000152588
+# machine load after run: 8.64 82.66 79.87
