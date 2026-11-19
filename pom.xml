@@ -18,9 +18,25 @@
         <maven.compiler.target>17</maven.compiler.target>
         <javafx.version>17.0.10</javafx.version>
         <junit.version>5.10.2</junit.version>
+        <djl.version>0.40.0</djl.version>
     </properties>
 
     <dependencies>
+        <!-- Deep Java Library (DJL): framework-neutral deep-learning API -->
+        <dependency>
+            <groupId>ai.djl</groupId>
+            <artifactId>api</artifactId>
+            <version>${djl.version}</version>
+        </dependency>
+
+        <!-- DJL PyTorch engine (native libtorch is downloaded to ~/.djl.ai on first use) -->
+        <dependency>
+            <groupId>ai.djl.pytorch</groupId>
+            <artifactId>pytorch-engine</artifactId>
+            <version>${djl.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- JavaFX Controls (Buttons, Labels, Panes, etc.) -->
         <dependency>
             <groupId>org.openjfx</groupId>
