@@ -49,9 +49,10 @@ public final class FailureAnalysisPage {
 
         VBox limitsCard = Ui.card("KNOWN LIMITATIONS", null, null);
         limitsCard.getChildren().add(Ui.bullets(
-                "Illumination, season and sun angle: pixel differencing flags ANY brightness change (shadows, vegetation "
-                        + "cycles, haze), so most of the baseline's false positives are not real change. The deep model learned "
-                        + "to ignore much of this from the training data, but it is not immune.",
+                "Illumination, season and sun angle: pixel differencing flags ANY brightness difference (shadows, "
+                        + "vegetation cycles, haze), so it raises false alarms wherever brightness changed without a real "
+                        + "change. The deep model was trained on labelled pairs that contain such differences, which makes it "
+                        + "less sensitive to them (compare both engines on the same pair), but not immune.",
                 "Registration: both engines compare A and B pixel by pixel and assume they are co-registered. A shift of a "
                         + "few pixels produces false change along every edge.",
                 "Building-only labels: LEVIR-CD marks construction and demolition of buildings only. New roads, cleared soil "
