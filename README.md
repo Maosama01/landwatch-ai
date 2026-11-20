@@ -4,7 +4,7 @@
 
 Academic project for **Problem Statement 50**: geospatial intelligence, multitemporal satellite image analysis, land-use and building-change detection.
 
-Team: _add names here_
+Student: Anushka Parashar · built with AI assistance, disclosed in [Acknowledgements and AI assistance](#acknowledgements-and-ai-assistance)
 
 LANDWATCH AI takes two co-registered images of the same place, taken on different dates, and produces a per-pixel binary change mask. Change detection is evaluated on **LEVIR-CD**, a public building-change benchmark (637 Google Earth image pairs of 1024×1024 px at 0.5 m/pixel), which this project validates and tiles into 10,192 verified 256×256 patch triplets. The repository contains a reproducible data pipeline, a classical luminance-differencing baseline with Otsu thresholding benchmarked on the official validation and test splits, a plain-Java implementation of the multilayer perceptron, backpropagation, four optimisers, gradient checking and six classic learning rules, an FC-Siam-diff network (Daudt, Le Saux & Boulch, ICIP 2018) trained in Java through DJL's PyTorch engine on CPU or Apple MPS, and a desktop dashboard. The full academic write-up is in **[REPORT.md](REPORT.md)**.
 
@@ -256,6 +256,9 @@ java -cp "$CP" com.landwatch.deeplearning.EvaluateChangeDetector test
 java -cp "$CP" com.landwatch.deeplearning.PredictChangeMap before.png after.png mask.png \
     --model models/siamese_unet_levir --device auto --probability-out probability.png
 
+# Post-hoc error analysis of the shipped model on the full-resolution test images (needs datasets/LEVIR-CD/test)
+java -cp "$CP" com.landwatch.deeplearning.AnalyzeTestErrors test
+
 # Optional: CPU vs Apple MPS training-step benchmark on a synthetic batch [batch] [steps] [patch]
 java -cp "$CP" com.landwatch.deeplearning.DeviceBenchmark 8 12 256
 ```
@@ -361,6 +364,16 @@ At the untuned threshold 0.50, test F1 would be 0.8676, so the val-tuned thresho
 
 The baseline flags about four times as many pixels as truly changed, and about 94 % of its detections are false alarms. The learned model flags almost exactly the true amount of change, and 87 % of its detections are correct. Learned bi-temporal features separate building change from illumination, season and registration noise far better than a fixed brightness-difference rule.
 
+### Where the deep model still fails (LEVIR-CD test, post-hoc)
+
+`AnalyzeTestErrors` re-runs the shipped model on the 128 full-resolution test images and breaks its errors down. Its summed confusion matrix is identical to the recorded test evaluation, and nothing was tuned afterwards. Files: `results/deeplearning/test_error_analysis.txt`, per image in `test_per_image.csv`.
+
+- **Per image:** median F1 0.857 (quartiles 0.803 and 0.904) over the 118 images with change. Nine of the ten images without any change get an empty mask; the baseline flags 8.5 % to 53 % of each of them.
+- **Outlines:** 60.6 % of all wrong pixels lie within 2 px of a true building outline. Most errors are slightly misplaced edges, not missed or invented buildings.
+- **Small buildings:** 92.3 % of the 7,027 true change regions are found (at least half of their pixels), but only 17.6 % of those under 100 px (25 m²) and 65.8 % of those of 100–399 px.
+- **Whole false alarms:** 840 predicted regions touch no true change; they hold 15.6 % of the false-positive pixels.
+- **Worst images:** eight of the ten lowest-F1 images contain almost no change (at most 0.05 % of their pixels), so a few missed pixels decide the score. Two instructive failures: in `test_82` a large group of buildings is demolished and the site rebuilt, so both dates show roofs in the same place and most of the change is missed (recall 0.19); in `test_86` rows of white vehicles or trailers in a yard look like new buildings and become false alarms.
+
 ### EuroSAT land-use classification
 
 A separate task: scene classification of single 64×64 Sentinel-2 RGB tiles (10 m GSD) into 10 land-use / land-cover classes. It is **not** change detection and is not applied to LEVIR-CD images.
@@ -420,6 +433,7 @@ More views: [overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png), [g
 - **The classical baseline** reacts to any brightness difference: illumination, sun angle, season, haze and small registration errors all produce false positives, and Otsu always splits the histogram, even when nothing changed.
 - **FC-Siam-diff is order-symmetric.** Its decoder only sees |enc(A) − enc(B)|, so swapping the two dates gives the same output (checked in inference mode by `FcSiamDiffTest`): it cannot tell construction from demolition.
 - **No ground-sample-distance calibration** exists for arbitrary inputs. The dashboard reports areas in pixels only, and its "change level" is a heuristic based on the share of changed pixels, not a verified assessment.
+- **Small and rebuilt buildings are the deep model's weak spots.** It finds only 17.6 % of true change regions under 25 m² and misses sites where one building replaces another, because both dates show a roof (see "Where the deep model still fails").
 - **The bundled demo pair is synthetic**, not real satellite imagery.
 - **Training is not bit-reproducible.** Augmentation draws from an unseeded `ThreadLocalRandom`, and GPU (MPS) kernels are not guaranteed deterministic. Three full runs with different seeds give test F1 0.8650 ± 0.0058; three runs are only a rough estimate of the spread.
 - **Deviations from the FC-Siam-diff paper:** nearest-neighbour upsampling + 3×3 convolution instead of transposed convolution (DJL 0.40's PyTorch engine lacks the deconvolution operator), no dropout, an |A − B| bottleneck, and BatchNorm statistics shared across both dates.
@@ -433,7 +447,17 @@ More views: [overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png), [g
 - **LEVIR-CD**: H. Chen and Z. Shi, "A Spatial-Temporal Attention-Based Method and a New Dataset for Remote Sensing Image Change Detection", *Remote Sensing* 12(10):1662, 2020. Google Earth imagery, 0.5 m/pixel, 637 pairs of 1024×1024 px spanning 5–14 years (2002–2018), 31,333 annotated building-change instances. Distributed by its authors for research use: <https://justchenhao.github.io/LEVIR/>. Images are not redistributed here; only our derived text reports and patch metadata are.
 - **EuroSAT**: P. Helber, B. Bischke, A. Dengel and D. Borth, "EuroSAT: A Novel Dataset and Deep Learning Benchmark for Land Use and Land Cover Classification", *IEEE JSTARS* 12(7), 2019. Sentinel-2, 27,000 labelled 64×64 patches in 10 classes (RGB version used). Zenodo record 7711810, MIT licence. <https://github.com/phelber/EuroSAT>
 - **FC-Siam-diff**: R. Caye Daudt, B. Le Saux and A. Boulch, "Fully Convolutional Siamese Networks for Change Detection", ICIP 2018. Re-implemented here in Java with DJL and trained from scratch.
-- **Software**: OpenJFX, Deep Java Library (DJL) with the PyTorch engine, JUnit 5, Apache Maven, Pillow. Each is used under its own licence.
+- **Software**: OpenJFX, Deep Java Library (DJL) with the PyTorch engine (it provides the tensor operations, automatic differentiation and the Adam optimiser), JUnit 5, Apache Maven, Pillow. Each is used under its own licence. The Maven Wrapper scripts (`mvnw`, `mvnw.cmd`) come from the Apache Maven project (Apache License 2.0).
+- **No pretrained weights**: both networks (FC-Siam-diff and the EuroSAT ResNet) were trained from random He initialisation in this project.
 - **Licence**: this project's source code and documentation are released under the [MIT licence](LICENSE). It covers this project's own work only. The LEVIR-CD and EuroSAT images are not in the repository and keep their own terms, and the committed FC-Siam-diff weights were trained on LEVIR-CD, so any use of them should also respect LEVIR-CD's research-use terms.
 
 To cite the methods behind this project, see the reference list in [REPORT.md](REPORT.md#14-references).
+
+---
+
+## Acknowledgements and AI assistance
+
+This project was built with substantial help from an AI coding assistant, Anthropic's Claude (used through Claude Code). It was used to write and review code and tests, to run and record the experiments and analyses, and to draft this README, the report and the presentation. Commits made with it carry a `Co-Authored-By: Claude` line in the Git history. Every reported number is produced by code in this repository and read from its result files; none was typed in by hand.
+
+The student presenting the project is responsible for understanding, explaining and defending all of it.
+

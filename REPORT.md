@@ -2,7 +2,9 @@
 
 **Project report, Problem Statement 50** (geospatial intelligence: multitemporal satellite image analysis, land-use and building-change detection)
 
-Team: _add names here_
+Student: Anushka Parashar
+
+**Disclosure.** This project was built with substantial help from an AI coding assistant (Anthropic's Claude, through Claude Code); see [Acknowledgements and AI assistance](#acknowledgements-and-ai-assistance).
 
 November 2026
 
@@ -25,6 +27,7 @@ November 2026
 13. [Conclusion](#13-conclusion)
 14. [References](#14-references)
 - [Appendix A. Reproducing every result](#appendix-a-reproducing-every-result)
+- [Acknowledgements and AI assistance](#acknowledgements-and-ai-assistance)
 
 **Conventions.** Every number in this report is copied from a file in the repository, and every results table names its source file. Metric values are given with the 4 decimals printed in those files unless stated otherwise. A few numbers are *derived* from repository files (for example a median over a per-image CSV); these are marked "computed from" with the file name. References are given as [n] and listed in Section 14.
 
@@ -584,7 +587,7 @@ Sources for the selected model: `results/deeplearning/` (`training_log.csv`, `va
 | 1 | 7 of 13 | time budget: the next epoch (~23.5 min) would have exceeded 75 min | 67.0 min | 0.8554 (7, 0.80) | 0.8548 | 0.7465 | superseded, kept for comparison |
 | 2 | 13 of 13 | planned epochs completed | 83.4 min | **0.8738** (13, 0.65) | **0.8693** | **0.7688** | **selected (higher val F1)** |
 
-**Test-split accounting.** Each model was evaluated on test exactly once: run 1, run 2 and the two repeat runs below, four evaluations in total. None of these scores influenced a choice: run 1's checkpoint and threshold were fixed on val, the decision to retrain rested on run 1's validation curve, run 2 was selected by validation F1 under the rule fixed in advance, and the repeats were declared measurement-only before they started. `EvaluateChangeDetector` refuses to overwrite an existing test report, so no model can be re-scored on test by accident.
+**Test-split accounting.** Each model was evaluated on test exactly once: run 1, run 2 and the two repeat runs below, four evaluations in total. None of these scores influenced a choice: run 1's checkpoint and threshold were fixed on val, the decision to retrain rested on run 1's validation curve, run 2 was selected by validation F1 under the rule fixed in advance, and the repeats were declared measurement-only before they started. `EvaluateChangeDetector` refuses to overwrite an existing test report, so no model can be re-scored on test by accident. The post-hoc error analysis in Section 8.4 recomputes the shipped model's test predictions image by image; its summed confusion matrix is identical to that single evaluation, and no decision depended on it.
 
 Run 1 was slowed by other jobs sharing the 8 GB machine (its epoch 7 took 1,364.6 s against 347.9 s for epoch 1). Run 2 ran on an otherwise idle machine at 311–422 s per epoch.
 
@@ -667,6 +670,18 @@ Both methods are scored on the same LEVIR-CD **test** pixels: 134,217,728 pixels
 - **Pixel accuracy misleads, as predicted.** The baseline's 0.7747 pixel accuracy is *below* the 0.9491 that the trivial "always no change" rule would score (computed from the test confusion matrix). F1 and IoU rank the two methods correctly; pixel accuracy alone would understate the difference.
 
 Across three training runs with different seeds, test F1 is 0.8650 ± 0.0058 (Section 8.3). The gap to the baseline, about 0.76, is more than a hundred times that standard deviation, so the comparison does not depend on which run is shipped.
+
+**Where the deep model still fails (post-hoc error analysis).** `AnalyzeTestErrors` re-runs the shipped model, with its stored threshold, on the 128 full-resolution test images through the same 256×256 tiling and breaks its errors down. Its summed confusion matrix (TP 5,928,147, FP 873,175, FN 909,257, TN 126,507,149) is identical to the recorded test evaluation. The analysis describes the errors only; nothing was tuned or changed afterwards. Source: `results/deeplearning/test_error_analysis.txt`, per image in `results/deeplearning/test_per_image.csv`.
+
+| Question | Finding |
+|---|---|
+| How much do images vary? | Over the 118 test images with change, per-image F1 has a median of 0.857 (quartiles 0.803 and 0.904); 29 images are below 0.80 and 10 below 0.50. |
+| What happens without change? | 9 of the 10 test images without change get an empty mask; together 6,886 pixels (0.066 %) are flagged. The baseline flags 8.5 % to 53 % of each of them (Section 8.1). |
+| Are errors whole buildings or edges? | 60.6 % of all wrong pixels (65.1 % of false positives, 56.3 % of false negatives) lie within 2 px of a true building outline. Most errors are slightly misplaced edges. |
+| Which buildings are missed? | 92.3 % of the 7,027 true change regions (8-connected) are found, counting a region as found when at least half of its pixels are predicted. By size: under 100 px (25 m²) 17.6 % (22 of 125); 100–399 px 65.8 %; 400–1,599 px 96.0 %; 1,600 px and more 92.0 %. |
+| How many false alarms are whole objects? | 840 predicted regions touch no true change; they hold 15.6 % of the false-positive pixels. The rest is overshoot around true changes. |
+
+Two failure modes stand out when the lowest-scoring images are inspected. First, eight of the ten lowest-F1 images contain almost no change (at most 0.05 % of their pixels, a few small buildings), so a handful of missed pixels decides their score; this matches the low recall on small regions. Second, two images show systematic causes. In `test_82` (true change 5.11 %, recall 0.19) a large group of buildings is demolished and the site rebuilt: both dates show roofs in the same place, the encoder's features at that place stay similar, and the absolute difference that FC-Siam-diff relies on stays small. In `test_86` rows of white vehicles or trailers in a yard, absent in the earlier image, look like new buildings and become false alarms. Both are consequences of the design rather than of chance: the model compares appearance, and appearance changes little when a building replaces a building, and a lot when building-like objects appear.
 
 ### 8.5 Neural-network fundamentals
 
@@ -897,7 +912,7 @@ Each run writes four files to `results/` with the prefix `landwatch_<engine-id>_
 | `com.landwatch.fundamentals.learningrules` | Hebbian, Oja, competitive, perceptron, LMS, Boltzmann, demo |
 | `com.landwatch.geospatial` | image loading and validation, luminance, `BaselineChangeDetector`, visualisation |
 | `com.landwatch.evaluation` | `BinaryChangeMetrics`, `MulticlassMetrics`, `LevirCdPairReader`, `BaselineBenchmark`, `BaselineMinRegionSweep` |
-| `com.landwatch.deeplearning` | `FcSiamDiff`, `BceDiceLoss`, `D4Augmentation`, `Normalization`, dataset classes, training / evaluation / prediction CLIs, `DeepChangeDetector`, `DeviceBenchmark` |
+| `com.landwatch.deeplearning` | `FcSiamDiff`, `BceDiceLoss`, `D4Augmentation`, `Normalization`, dataset classes, training / evaluation / prediction CLIs, `DeepChangeDetector`, `AnalyzeTestErrors`, `DeviceBenchmark` |
 | `com.landwatch.deeplearning.eurosat` | `EuroSatResNet`, `ResidualBlock`, `EuroSatSplit`, data and training classes, `TrainEuroSatClassifier` / `EvaluateEuroSatClassifier` / `PredictEuroSatClass`, `EuroSatClassifier` |
 | `com.landwatch.ui` | `DashboardController`, engines, views, `ResultExporter` |
 | `python_dataprep/` | LEVIR-CD inspection and tiling; synthetic demo generator |
@@ -1004,6 +1019,7 @@ Learning XOR shows that the from-scratch backpropagation is correct. It does not
 - **Label noise.** The 709 stray 156/254 mask pixels are counted as change. They are far too few to affect any reported metric, but they show that the official labels are not perfectly clean.
 - **Training length.** The selected model completed its full 13-epoch schedule, and its validation F1 was flattening at the end (+0.0024 over the last three epochs, Section 8.3). A longer schedule or a different learning-rate policy might still help; this was not tested.
 - **Tile seams.** Full-image inference uses non-overlapping 256×256 tiles. Pixels near tile borders have less context, which shows as faint seams in probability maps. The patch-level metrics are unaffected, because evaluation uses the same tiling as training.
+- **Small and rebuilt buildings.** The deep model finds only 17.6 % of true change regions under 25 m², and it misses much of the change where one building replaces another (Section 8.4). Its pixel-level test F1 hides these weaknesses, because small regions carry few pixels.
 - **Synthetic demo.** The bundled pair is synthetic; the dashboard's behaviour on it says nothing about accuracy on real imagery.
 
 ---
@@ -1149,6 +1165,9 @@ java -cp "$CP" com.landwatch.deeplearning.EvaluateChangeDetector test --model mo
 java -cp "$CP" com.landwatch.deeplearning.PredictChangeMap before.png after.png mask.png \
     --model models/siamese_unet_levir --device auto --probability-out probability.png
 
+# Post-hoc error analysis on the full-resolution test images; writes results/deeplearning/test_{per_image.csv,error_analysis.txt}
+java -cp "$CP" com.landwatch.deeplearning.AnalyzeTestErrors test
+
 # CPU vs MPS step-time benchmark on a synthetic batch: [batchSize] [steps] [patchSize]
 java -cp "$CP" com.landwatch.deeplearning.DeviceBenchmark 8 12 256
 ```
@@ -1186,3 +1205,14 @@ java -cp "target/classes:target/test-classes:$(cat target/classpath.txt)" \
 python3 python_dataprep/generate_sample_satellite_pair.py
 # rewrites src/main/resources/com/landwatch/sample_data/siteA_{pre,post}.bmp (synthetic, not satellite imagery)
 ```
+
+---
+
+## Acknowledgements and AI assistance
+
+- **AI assistance.** This project was built with substantial help from an AI coding assistant, Anthropic's Claude (used through Claude Code). It was used to write and review code and tests, to run and record the experiments and analyses, and to draft the README, this report and the presentation. Commits made with it carry a `Co-Authored-By: Claude` line in the Git history. Every reported number is produced by code in this repository and read from its result files; none was typed in by hand.
+- **Third-party software.** DJL with the PyTorch engine provides the tensor operations, automatic differentiation and the Adam optimiser used by the deep models; JavaFX, JUnit 5 and Apache Maven (including its Maven Wrapper scripts) are used under their own licences. The neural-network fundamentals in `com.landwatch.fundamentals` use no library.
+- **Architectures and data.** FC-Siam-diff follows Daudt, Le Saux and Boulch [2], with the deviations of Section 6.4.2; the EuroSAT network follows ResNet [5]. No pretrained weights were used: both networks were trained from random He initialisation. The datasets are LEVIR-CD [1] and EuroSAT [3].
+
+The student presenting the project is responsible for understanding, explaining and defending all of it.
+

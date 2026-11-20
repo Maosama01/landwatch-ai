@@ -1,0 +1,43 @@
+=== LandWatch AI - post-hoc error analysis of the deep model on the test split ===
+Date: 2026-11-20T20:34:05 | Java 17.0.21.1 | device mps(0)
+Model: models/siamese_unet_levir (decision threshold 0.650, used as shipped) | data: datasets/LEVIR-CD/test
+Purpose: describe where the shipped model is wrong. Nothing was tuned or changed afterwards.
+Reproduce: java -cp "$CP" com.landwatch.deeplearning.AnalyzeTestErrors test
+
+1. Consistency with the recorded evaluation
+   Summed over 128 full-resolution images: TP=5928147  FP=873175  FN=909257  TN=126507149  (F1 0.8693, IoU 0.7688)
+   Recorded in results/deeplearning/test_metrics.txt:          TP=5928147  FP=873175  FN=909257  TN=126507149  -> identical
+
+2. Per-image F1 (118 images with true change; F1 = 0 when nothing is found)
+   min 0.0000 | 25 % 0.8028 | median 0.8571 | 75 % 0.9042 | max 0.9637
+   images below F1 0.80: 29 | below 0.70: 18 | below 0.50: 10
+   Ten lowest-F1 images:
+     image          change %  pred %    F1      P       R     true obj  found  false-alarm obj
+     test_59.png      0.02     0.07  0.0000  0.0000  0.0000         3      0         4
+     test_61.png      0.02     0.00  0.0000  0.0000  0.0000         2      0         0
+     test_63.png      0.02     0.00  0.0000  0.0000  0.0000         2      0         0
+     test_88.png      0.05     0.00  0.0000  0.0000  0.0000         4      0         4
+     test_94.png      0.05     0.00  0.0000  0.0000  0.0000         1      0         1
+     test_99.png      0.02     0.00  0.0000  0.0000  0.0000         6      0         0
+     test_98.png      0.05     0.01  0.2052  1.0000  0.1143         1      0         0
+     test_128.png     0.05     0.01  0.2562  0.7094  0.1563         3      0         1
+     test_82.png      5.11     1.12  0.3072  0.8557  0.1872        18      3        13
+     test_86.png      0.21     0.58  0.3288  0.2239  0.6185         5      2        28
+   10 images contain no true change: 9 of them get an empty mask; together 6886 pixels are flagged (0.066 % of their pixels)
+
+3. Errors near true building outlines (band of 2 px on each side)
+   false positives near an outline: 568172 of 873175 (65.1 %)
+   false negatives near an outline: 511872 of 909257 (56.3 %)
+   all wrong pixels near an outline: 1080044 of 1782432 (60.6 %)
+
+4. True change regions (8-connected) found, by size (found = at least half its pixels predicted)
+   all regions: 6486 of 7027 found (92.3 %)
+   < 100 px     (0-25 m2     ):    22 of   125 found (17.6 %)
+   100-399 px   (25-100 m2   ):   308 of   468 found (65.8 %)
+   400-1599 px  (100-400 m2  ):  5647 of  5881 found (96.0 %)
+   >= 1600 px   (>= 400 m2   ):   509 of   553 found (92.0 %)
+
+5. Predicted regions that touch no true change at all (whole false alarms)
+   840 regions, 135910 pixels = 15.6 % of all false-positive pixels; the rest are overshoot attached to true changes
+
+Time: 33.1 s for 128 image pairs
