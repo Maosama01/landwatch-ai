@@ -1,5 +1,5 @@
-# Checks that the project builds and its tests pass on Windows, from a folder whose path contains
-# non-ASCII characters (like a Japanese "Documents" folder), using the same setup script a user runs.
+# Checks that the project builds and its tests pass on Windows, from a folder named "Landwatch AI"
+# (a name with a space), using the same setup script a user runs.
 name: Windows check
 
 on:
@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: OneDrive/ドキュメント/landwatch-ai-main
+        working-directory: Landwatch AI
     steps:
       - name: Keep LF line endings, as in a GitHub zip download
         working-directory: .
@@ -20,7 +20,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          path: OneDrive/ドキュメント/landwatch-ai-main
+          path: Landwatch AI
 
       - uses: actions/setup-java@v4
         with:

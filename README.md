@@ -194,7 +194,7 @@ All commands are run from the project root. `mvn` and the wrapper (`./mvnw` on m
    The script finds or installs JDK 17 (Eclipse Temurin), offers to set `JAVA_HOME`, checks the Microsoft Visual C++ runtime that PyTorch needs, installs the Java extensions, and builds and runs the tests through the Maven wrapper. The first run downloads Maven, the libraries and libtorch, so it takes several minutes.
 3. Restart VS Code, then start the dashboard with **Run and Debug → LandWatch AI dashboard** (F5), or **Run Task → LandWatch: run dashboard**. Click **Demo pair**, then **Analyze changes**.
 
-On Windows the deep model runs on the CPU. The LEVIR-CD tests are skipped when the dataset is absent. The workflow `.github/workflows/windows.yml` runs the same script on a GitHub Windows machine, from a folder whose path contains Japanese characters.
+On Windows the deep model runs on the CPU. The LEVIR-CD tests are skipped when the dataset is absent. The workflow `.github/workflows/windows.yml` runs the same script on a GitHub Windows machine, from a folder named "Landwatch AI".
 
 ### Tests
 
