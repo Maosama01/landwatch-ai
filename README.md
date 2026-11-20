@@ -207,7 +207,7 @@ mvn clean test
 
 Expected result: **251 tests, 0 failures** (Java 17.0.21.1, Apple M3, with the LEVIR-CD patches present). By area: fundamentals 59, learning rules 44, classical baseline and visualisation 18, evaluation 29, LEVIR-CD deep learning 30, EuroSAT 19, dashboard 52.
 
-Tests that read real LEVIR-CD patches are skipped automatically (JUnit assumptions) when `datasets/LEVIR-CD/processed_256` is not present. The deep-learning tests need the PyTorch native library, which DJL downloads on the first run.
+Tests that read real LEVIR-CD patches are skipped automatically (JUnit assumptions) when the patch images are not present; the repository holds only their metadata. On a fresh clone, expect 251 tests with 2 skipped. The deep-learning tests need the PyTorch native library, which DJL downloads on the first run.
 
 ### Dashboard
 

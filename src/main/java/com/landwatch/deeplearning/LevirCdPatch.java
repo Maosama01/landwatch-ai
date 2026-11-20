@@ -90,7 +90,11 @@ public record LevirCdPatch(String name, Path imageA, Path imageB, Path label, St
      * {@code landwatch.levir.root}, environment variable {@code LEVIR_CD_ROOT}, then
      * {@code datasets/LEVIR-CD/processed_256} relative to the working directory.
      *
-     * @return the directory, or {@code null} if none of the candidates contains the metadata
+     * <p>A candidate counts only if it holds both the patch metadata and the training images
+     * ({@code train/A}). The metadata CSVs are committed to the repository but the images are not,
+     * so a fresh clone without the dataset correctly reports "not found".</p>
+     *
+     * @return the directory, or {@code null} if no candidate contains the metadata and the images
      */
     public static Path locateDatasetRoot() {
         List<String> candidates = new ArrayList<>();
@@ -105,7 +109,8 @@ public record LevirCdPatch(String name, Path imageA, Path imageB, Path label, St
         candidates.add("datasets/LEVIR-CD/processed_256");
         for (String c : candidates) {
             Path p = Path.of(c).toAbsolutePath().normalize();
-            if (Files.isRegularFile(p.resolve("metadata").resolve("train_patches.csv"))) {
+            if (Files.isRegularFile(p.resolve("metadata").resolve("train_patches.csv"))
+                    && Files.isDirectory(p.resolve("train").resolve("A"))) {
                 return p;
             }
         }
