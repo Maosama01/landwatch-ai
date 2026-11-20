@@ -1,0 +1,32 @@
+# Checks that the project builds and its tests pass on Windows, from a folder whose path contains
+# non-ASCII characters (like a Japanese "Documents" folder), using the same setup script a user runs.
+name: Windows check
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: OneDrive/ドキュメント/landwatch-ai-main
+    steps:
+      - name: Keep LF line endings, as in a GitHub zip download
+        working-directory: .
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+        with:
+          path: OneDrive/ドキュメント/landwatch-ai-main
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Run the Windows setup script (finds JDK 17, checks, builds, runs the tests)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-windows.ps1 -Unattended

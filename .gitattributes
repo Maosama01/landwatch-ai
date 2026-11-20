@@ -1,0 +1,4 @@
+# Windows scripts keep CRLF line endings; the Unix wrapper keeps LF.
+*.cmd -text
+*.ps1 -text
+mvnw text eol=lf

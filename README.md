@@ -137,7 +137,7 @@ Created locally when you run the tools (not part of the repository): the `datase
 | Tool | Version | Used for |
 |---|---|---|
 | JDK | 17 | everything in Java (the build targets `--release 17`) |
-| Maven | 3.9+ | build, tests, running the app |
+| Maven | 3.9+, or none | build, tests, running the app; the included wrapper (`./mvnw`, `mvnw.cmd`) downloads Maven 3.9.9 itself |
 | Python 3 | with Pillow | dataset inspection and tiling |
 
 - On first use, DJL downloads the native PyTorch library (libtorch, about 200 MB) into `~/.djl.ai`. This happens on the first deep-learning test or command, so the first run needs an internet connection.
@@ -182,7 +182,19 @@ The deep-learning tools find the patches at `datasets/LEVIR-CD/processed_256` re
 
 ## How to run
 
-All commands are run from the project root.
+All commands are run from the project root. `mvn` and the wrapper (`./mvnw` on macOS/Linux, `.\mvnw.cmd` on Windows) are interchangeable.
+
+### Windows and VS Code (quick start)
+
+1. Install [VS Code](https://code.visualstudio.com/) and open the project folder (File → Open Folder…). Accept the recommended **Extension Pack for Java** when asked.
+2. Run **Terminal → Run Task… → LandWatch: Windows setup (JDK 17, checks, tests)**. Or run this in a terminal:
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-windows.ps1
+   ```
+   The script finds or installs JDK 17 (Eclipse Temurin), offers to set `JAVA_HOME`, checks the Microsoft Visual C++ runtime that PyTorch needs, installs the Java extensions, and builds and runs the tests through the Maven wrapper. The first run downloads Maven, the libraries and libtorch, so it takes several minutes.
+3. Restart VS Code, then start the dashboard with **Run and Debug → LandWatch AI dashboard** (F5), or **Run Task → LandWatch: run dashboard**. Click **Demo pair**, then **Analyze changes**.
+
+On Windows the deep model runs on the CPU. The LEVIR-CD tests are skipped when the dataset is absent. The workflow `.github/workflows/windows.yml` runs the same script on a GitHub Windows machine, from a folder whose path contains Japanese characters.
 
 ### Tests
 

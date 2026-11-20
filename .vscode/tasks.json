@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "LandWatch: run dashboard",
+      "type": "shell",
+      "command": "./mvnw",
+      "windows": { "command": ".\\mvnw.cmd" },
+      "args": ["-q", "javafx:run"],
+      "problemMatcher": []
+    },
+    {
+      "label": "LandWatch: run all tests",
+      "type": "shell",
+      "command": "./mvnw",
+      "windows": { "command": ".\\mvnw.cmd" },
+      "args": ["-B", "test"],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "LandWatch: Windows setup (JDK 17, checks, tests)",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts\\setup-windows.ps1"],
+      "problemMatcher": []
+    }
+  ]
+}

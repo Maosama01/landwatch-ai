@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "LandWatch AI dashboard",
+      "request": "launch",
+      "mainClass": "com.landwatch.Launcher",
+      "projectName": "landwatch-ai",
+      "cwd": "${workspaceFolder}",
+      "vmArgs": "-Dlandwatch.model.dir=models/siamese_unet_levir -Dlandwatch.deeplearning.device=auto -Dlandwatch.dataset.dir=datasets/LEVIR-CD"
+    }
+  ]
+}

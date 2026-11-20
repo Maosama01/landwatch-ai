@@ -5,7 +5,11 @@ target/
 # IDE / OS files
 .idea/
 *.iml
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
 .settings/
 .project
 .classpath

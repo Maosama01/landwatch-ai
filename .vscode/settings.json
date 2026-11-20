@@ -1,0 +1,6 @@
+{
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "files.exclude": { "**/._*": true },
+  "files.watcherExclude": { "**/target/**": true, "**/datasets/**": true },
+  "search.exclude": { "**/target": true, "datasets/**": true }
+}
