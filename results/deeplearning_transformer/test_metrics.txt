@@ -1,0 +1,24 @@
+LandWatch AI - FC-Siam-diff + Transformer change detection, evaluation on LEVIR-CD TEST split
+Generated: 2026-11-21T21:42:07.612341
+Model: models/siamese_unet_levir_transformer
+Patches: 2048 of 256x256 (datasets/LEVIR-CD/processed_256/metadata/test_patches.csv)
+Decision threshold: 0.65 (tuned on VAL during training)
+Inference device: mps(0), DJL 0.40.0 / PyTorch 2.7.1
+Metrics: global pixel confusion matrix over all patches (com.landwatch.evaluation.BinaryChangeMetrics)
+
+Confusion matrix (pixels): TP=5908385  FP=895956  FN=929019  TN=126484368  (total 134217728)
+Change precision : 0.8683
+Change recall    : 0.8641
+Change F1        : 0.8662
+Change IoU       : 0.7640
+Macro F1         : 0.9295
+Mean IoU         : 0.8749
+Cohen's kappa    : 0.8591
+Area error       : -0.48 %  (predicted 6804341 vs true 6837404 change pixels; |FP - FN| = 33063)
+Pixel accuracy   : 0.9864  (misleading alone: classes are imbalanced)
+
+For reference only, at the untuned threshold 0.50: precision 0.8489, recall 0.8815, F1 0.8649, IoU 0.7619
+
+Inference latency per 256x256 patch on mps(0) (predictProbabilities + threshold, batch of 1, excluding 5 warm-up calls, n=2043): mean 20.8 ms, median 18.3 ms, p95 35.7 ms
+Inference latency per 256x256 patch on cpu() [separate run on the first 50 patches, for machines without MPS] (predictProbabilities + threshold, batch of 1, excluding 5 warm-up calls, n=45): mean 46.5 ms, median 46.3 ms, p95 48.1 ms
+Total evaluation wall time (incl. PNG decoding): 53.6 s

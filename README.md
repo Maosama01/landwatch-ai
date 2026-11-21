@@ -6,7 +6,7 @@ Academic project for **Problem Statement 50**: geospatial intelligence, multitem
 
 Student: Anushka Parashar · built with AI assistance, disclosed in [Acknowledgements and AI assistance](#acknowledgements-and-ai-assistance)
 
-LANDWATCH AI takes two co-registered images of the same place, taken on different dates, and produces a per-pixel binary change mask. Change detection is evaluated on **LEVIR-CD**, a public building-change benchmark (637 Google Earth image pairs of 1024×1024 px at 0.5 m/pixel), which this project validates and tiles into 10,192 verified 256×256 patch triplets. The repository contains a reproducible data pipeline, a classical luminance-differencing baseline with Otsu thresholding benchmarked on the official validation and test splits, a plain-Java implementation of the multilayer perceptron, backpropagation, four optimisers, gradient checking and six classic learning rules, an FC-Siam-diff network (Daudt, Le Saux & Boulch, ICIP 2018) trained in Java through DJL's PyTorch engine on CPU or Apple MPS, and a desktop dashboard. The full academic write-up is in **[REPORT.md](REPORT.md)**.
+LANDWATCH AI takes two co-registered images of the same place, taken on different dates, and produces a per-pixel binary change mask. Change detection is evaluated on **LEVIR-CD**, a public building-change benchmark (637 Google Earth image pairs of 1024×1024 px at 0.5 m/pixel), which this project validates and tiles into 10,192 verified 256×256 patch triplets. The repository contains a reproducible data pipeline, a classical luminance-differencing baseline with Otsu thresholding benchmarked on the official validation and test splits, a plain-Java implementation of the multilayer perceptron, backpropagation, four optimisers, gradient checking and six classic learning rules, an FC-Siam-diff network (Daudt, Le Saux & Boulch, ICIP 2018) trained in Java through DJL's PyTorch engine on CPU or Apple MPS, and a desktop dashboard. Later extensions add an FC-Siam-diff variant with a Transformer at its bottleneck, an ablation study, a variational autoencoder (VAE) on EuroSAT, a from-scratch SVD checked against Oja's rule, an area-estimation-error metric in m², and a EuroSAT land-use page in the dashboard. The full academic write-up is in **[REPORT.md](REPORT.md)**; the data, models and runs are summarised in a [dataset card](docs/DATASET_CARD.md), a [model card](docs/MODEL_CARD.md) and an [experiment log](docs/EXPERIMENT_LOG.md), and every outside source and tool is listed in the [source and contribution log](docs/SOURCE_CONTRIBUTION_LOG.md).
 
 ---
 
@@ -29,6 +29,7 @@ Neural-network fundamentals (plain Java, no libraries):
 |---|---|---|
 | XOR with a 2-4-1 sigmoid MLP, backpropagation + SGD | mean loss 0.139816 → 0.000043 (99.97 % reduction); outputs 0.0053 / 0.9917 / 0.9913 / 0.0130 for targets 0 / 1 / 1 / 0 | `results/fundamentals/xor_and_gradient_check_output.txt` |
 | Gradient check (central differences, 2-3-1 network) | 13 of 13 parameters pass; max relative error 9.00e-10 (tolerance 1.00e-05) | `results/fundamentals/xor_and_gradient_check_output.txt` |
+| SVD from scratch (one-sided Jacobi) | Oja's weight vector matches the top right singular vector (\|cos\| = 0.99999); a 64 × 64 EuroSAT tile keeps 97.4 % of its energy at rank 1 and reaches 34.9 dB at rank 16 | `results/fundamentals/learning_rules_demo_output.txt`, `svd_demo_output.txt` |
 | Learning-rules demo (seed 42) | Oja: \|w\| = 1.0004, 0.17° from the principal eigenvector; LMS recovers w = [2.0000, −3.0000, 0.5000], b = 1.0000; a single perceptron cannot learn XOR (25 % at the end, 50 % best) | `results/fundamentals/learning_rules_demo_output.txt` |
 
 ---
@@ -41,8 +42,13 @@ Neural-network fundamentals (plain Java, no libraries):
 - **Neural-network fundamentals from scratch.** McCulloch–Pitts and sigmoid neurons, dense layers, MLP, backpropagation, SGD / batch GD / momentum / Nesterov (true lookahead gradient), central-difference gradient checking.
 - **Classic learning rules.** Hebbian, Oja, competitive (winner-take-all), perceptron, LMS (Widrow–Hoff) and a small Boltzmann machine trained with Gibbs sampling.
 - **Deep change detection (DJL + PyTorch).** FC-Siam-diff with a shared encoder and |enc(A) − enc(B)| skip connections (1,348,785 trainable parameters), weighted BCE + soft Dice loss, D4 flip/rotation augmentation, train-only normalisation, a decision threshold tuned on val, and tiled inference with mirror padding for images of any size. Runs on CPU or the Apple-silicon GPU (MPS).
+- **FC-Siam-diff + Transformer (DJL).** Two pre-norm self-attention layers over the bottleneck tokens of both dates (after BIT, Chen et al. 2022), with multi-head attention written out as array operations; trained with exactly the shipped recipe so that the comparison isolates the Transformer.
+- **Controlled comparisons.** Baseline vs. deep model on the same pixels, 7 vs. 13 epochs, three seeds, the Dice term on/off (`--dice-weight 0`, validation only) and FC-Siam-diff with and without the Transformer; each changes one thing and keeps the rest fixed.
+- **Variational autoencoder (DJL).** A convolutional VAE on EuroSAT with the reparameterisation trick and a negative-ELBO loss; reconstructions, samples from the prior and per-class errors.
+- **SVD from scratch.** One-sided Jacobi singular value decomposition, used to check that Oja's rule learns the top principal direction.
+- **Area estimation error.** Changed area in m² (LEVIR-CD's 0.5 m pixels) against the truth, per image and in total.
 - **Land-use classification (DJL).** A ResNet-18-style classifier trained on EuroSAT (10 classes, Sentinel-2 RGB), with a K×K confusion matrix and per-class metrics (`MulticlassMetrics`), training/evaluation/prediction CLIs and an inference API.
-- **JavaFX dashboard.** Inputs, result and measurements on one screen, with the finding of the last run stated under the title. Run the classical baseline or the trained deep model (loaded in the background and selected once ready) on the same pair. Views: overlay, mask and change map, plus the ground-truth label and an error map (TP / FP / FN) when a real LEVIR-CD pair is loaded, and a before/after swipe. Drag-and-drop loading, keyboard shortcuts, a full-size viewer and a light theme for projectors. Per-image F1 / IoU / precision / recall against ground truth, an activity log and export of every run. Sidebar pages: Failure analysis (the baseline's worst test images), Benchmarks (read from the result files at runtime), NN fundamentals (runs XOR, the gradient check and the learning-rules demo live) and About and runtime.
+- **JavaFX dashboard.** Inputs, result and measurements on one screen, with the finding of the last run stated under the title. Run the classical baseline or the trained deep model (loaded in the background and selected once ready) on the same pair. Views: overlay, mask and change map, plus the ground-truth label and an error map (TP / FP / FN) when a real LEVIR-CD pair is loaded, and a before/after swipe. Drag-and-drop loading, keyboard shortcuts, a full-size viewer and a light theme for projectors. Per-image F1 / IoU / precision / recall against ground truth, an activity log and export of every run. Sidebar pages: Failure analysis (the baseline's worst test images), Land use (EuroSAT: classify an image or test tiles live with all class probabilities and the true label), Benchmarks (read from the result files at runtime), NN fundamentals (runs XOR, the gradient check and the learning-rules demo live) and About and runtime.
 
 ---
 
@@ -155,7 +161,7 @@ The images are not redistributed in this repository.
 
 ### LEVIR-CD (building change detection)
 
-1. Download LEVIR-CD from the official page: <https://justchenhao.github.io/LEVIR/> (research use).
+1. Download LEVIR-CD from the official page: <https://justchenhao.github.io/LEVIR/> (research use). At the time of writing that page shows no direct download link; a complete unofficial mirror with the same 445/64/128 split (2.47 GB, free Kaggle account needed) is <https://www.kaggle.com/datasets/mdrifaturrahman33/levir-cd>. The authors' academic-use terms apply either way.
 2. Unpack it so that the official splits sit here:
    ```
    datasets/LEVIR-CD/train/{A,B,label}/
@@ -174,7 +180,7 @@ The deep-learning tools find the patches at `datasets/LEVIR-CD/processed_256` re
 
 ### EuroSAT (land-use classification)
 
-1. Download `EuroSAT_RGB.zip` from Zenodo record 7711810: <https://zenodo.org/records/7711810> (project page: <https://github.com/phelber/EuroSAT>).
+1. Download `EuroSAT_RGB.zip` (90 MB) from Zenodo record 7711810: <https://zenodo.org/records/7711810/files/EuroSAT_RGB.zip?download=1> (record page: <https://zenodo.org/records/7711810>; project page: <https://github.com/phelber/EuroSAT>).
 2. Unzip it into `datasets/EuroSAT/` so that the images are at `datasets/EuroSAT/EuroSAT_RGB/<Class>/<Class>_<n>.jpg` (27,000 JPEGs). Check the archive's MD5 against the value on the Zenodo record.
 3. The committed split in `datasets/EuroSAT/splits/` is used as is. To recreate it (stratified 70/15/15, seed 42), run `java -cp "$CP" com.landwatch.deeplearning.eurosat.EuroSatSplit --root datasets/EuroSAT --seed 42`, with `CP` set up as in "Deep model" below.
 
@@ -194,7 +200,19 @@ All commands are run from the project root. `mvn` and the wrapper (`./mvnw` on m
    The script finds or installs JDK 17 (Eclipse Temurin), offers to set `JAVA_HOME`, checks the Microsoft Visual C++ runtime that PyTorch needs, installs the Java extensions, and builds and runs the tests through the Maven wrapper. The first run downloads Maven, the libraries and libtorch, so it takes several minutes.
 3. Restart VS Code, then start the dashboard with **Run and Debug → LandWatch AI dashboard** (F5), or **Run Task → LandWatch: run dashboard**. Click **Demo pair**, then **Analyze changes**.
 
-On Windows the deep model runs on the CPU. The LEVIR-CD tests are skipped when the dataset is absent. The workflow `.github/workflows/windows.yml` runs the same script on a GitHub Windows machine, from a folder named "Landwatch AI".
+On Windows the dashboard's deep model runs on the CPU. The LEVIR-CD tests are skipped when the dataset is absent. The workflow `.github/workflows/windows.yml` runs the same script on a GitHub Windows machine, from a folder named "Landwatch AI".
+
+### Training on an NVIDIA GPU (Windows)
+
+After the setup script has run once, `scripts\train-gpu-windows.ps1` trains one model on an NVIDIA GPU with the CUDA 12.8 build of PyTorch (downloaded by DJL on the first run, about 3 GB). It needs only the code and the 256×256 training tiles (`train`, `val` and `metadata` of `processed_256`), which it looks for in `datasets\LEVIR-CD\processed_256` or `C:\landwatch-data\processed_256`:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\train-gpu-windows.ps1 -Job check            # 30 steps: checks the GPU and estimates the run time
+.\scripts\train-gpu-windows.ps1 -Job transformer      # or no-augmentation / no-dice
+```
+
+It never reads the test split, and it ends by packing the weights and logs into `send_back_<job>.zip`.
 
 ### Tests
 
@@ -222,7 +240,8 @@ Inputs, result and measurements share one screen; the line under the title state
 - **Demo:** **Demo pair** (⌘D) loads the bundled pair (`src/main/resources/com/landwatch/sample_data/siteA_*.bmp`). It is a **synthetic, computer-generated 400×300 scene, not satellite imagery**, and has no ground truth.
 - **Your own images:** drop two images onto the frames (first by name = before), or use **Browse…** on each frame. Any co-registered pair of equal size works (PNG, JPG, BMP or TIFF).
 - **Full size** opens the current view at full resolution; **Light mode** in the sidebar suits a projector in a bright room.
-- Options: `mvn javafx:run -Dlandwatch.model.dir=<dir> -Dlandwatch.deeplearning.device=cpu|mps|auto -Dlandwatch.dataset.dir=<LEVIR-CD dir>`.
+- **Land use (EuroSAT)** in the sidebar classifies an opened 64×64 tile, a random EuroSAT test image or a gallery of test images with the ResNet and shows every class probability and, for dataset images, the true label. It needs `datasets/EuroSAT/EuroSAT_RGB/` for the test images (the model alone is enough for your own tiles) and refuses LEVIR-CD pairs, whose 0.5 m pixels are outside its 10 m training domain.
+- Options: `mvn javafx:run -Dlandwatch.model.dir=<dir> -Dlandwatch.deeplearning.device=cpu|mps|auto -Dlandwatch.dataset.dir=<LEVIR-CD dir> -Dlandwatch.eurosat.root=<EuroSAT dir>`.
 
 ### Classical baseline benchmark (needs the full-resolution LEVIR-CD images)
 
@@ -279,11 +298,21 @@ java -cp "$CP" com.landwatch.deeplearning.eurosat.PredictEuroSatClass tile.jpg -
 
 Defaults: `--model models/eurosat_resnet`, `--results results/eurosat`, `--splits datasets/EuroSAT/splits`.
 
+The VAE uses the same data and split:
+
+```bash
+java -Xmx3g -cp "$CP" com.landwatch.deeplearning.eurosat.TrainEuroSatVae --latent 64 --epochs 25 --device auto   # writes models/eurosat_vae/
+java -Xmx3g -cp "$CP" com.landwatch.deeplearning.eurosat.EvaluateEuroSatVae val
+java -Xmx3g -cp "$CP" com.landwatch.deeplearning.eurosat.EvaluateEuroSatVae test    # once; writes results/eurosat_vae/
+```
+
 ### Neural-network fundamentals
 
 ```bash
 mvn -B compile
-java -cp target/classes com.landwatch.fundamentals.learningrules.LearningRulesDemo   # Hebbian, Oja, competitive, perceptron, LMS, Boltzmann
+java -cp target/classes com.landwatch.fundamentals.learningrules.LearningRulesDemo   # Hebbian, Oja (+ SVD check), competitive, perceptron, LMS, Boltzmann
+java -cp target/classes com.landwatch.evaluation.AreaEstimationError                   # area error in m² from the recorded per-image counts
+java -cp target/classes com.landwatch.fundamentals.math.SvdImageDemo                  # SVD: U, S, V^T example and low-rank image approximations
 mvn test -Dtest=BackpropagationEngineTest,GradientCheckerTest                      # XOR training + gradient check output
 ```
 
@@ -374,6 +403,20 @@ The baseline flags about four times as many pixels as truly changed, and about 9
 - **Whole false alarms:** 840 predicted regions touch no true change; they hold 15.6 % of the false-positive pixels.
 - **Worst images:** eight of the ten lowest-F1 images contain almost no change (at most 0.05 % of their pixels), so a few missed pixels decide the score. Two instructive failures: in `test_82` a large group of buildings is demolished and the site rebuilt, so both dates show roofs in the same place and most of the change is missed (recall 0.19); in `test_86` rows of white vehicles or trailers in a yard look like new buildings and become false alarms.
 
+### Area estimation error (LEVIR-CD test, 0.5 m per pixel)
+
+`AreaEstimationError` converts the recorded per-image counts into m², without running any model again (`results/deeplearning/test_area_error.txt`).
+
+| Measure | Classical baseline | FC-Siam-diff |
+|---|---|---|
+| Total changed area: true / predicted | 170.94 ha / 669.93 ha | 170.94 ha / 170.03 ha |
+| Error of the total | +291.92 % | **−0.53 %** |
+| Median relative error per image (108 images ≥ 250 m²) | 317.4 % | **6.5 %** |
+| Images within ±10 % of the true area | 6 % | 67 % |
+| Correlation of true and predicted area | r = 0.0177 | r = 0.9883 |
+
+The deep model's total is close partly because false alarms and misses nearly cancel, so this complements F1 and IoU rather than replacing them.
+
 ### EuroSAT land-use classification
 
 A separate task: scene classification of single 64×64 Sentinel-2 RGB tiles (10 m GSD) into 10 land-use / land-cover classes. It is **not** change detection and is not applied to LEVIR-CD images.
@@ -403,6 +446,19 @@ The most frequent test confusions are between visually similar vegetation classe
 
 The split is random, so tiles from the same region can fall into different splits. These numbers may therefore overstate performance on unseen regions, and they are not directly comparable with published EuroSAT results, which use other splits.
 
+### Variational autoencoder (EuroSAT test, evaluated once)
+
+| Measure | Value | Source |
+|---|---|---|
+| Reconstruction MSE / PSNR (z = μ) | 0.004420 / **23.55 dB** | `results/eurosat_vae/test_metrics.txt` |
+| Baseline: always the mean train image | 0.025164 / 15.99 dB | same |
+| Negative ELBO per image (reconstruction + KL) | 7,581.30 + 27.40 = 7,608.70 nats | same |
+| Easiest / hardest class | Forest 31.48 dB / Industrial 18.12 dB | `results/eurosat_vae/test_per_class.csv` |
+
+![VAE reconstructions: one test image per class (top) and its reconstruction (bottom)](results/eurosat_vae/test_reconstructions.png)
+
+Colours and coarse layout survive; roads, field edges and buildings blur away, the usual result for a small VAE. Images decoded from random codes ([samples](results/eurosat_vae/prior_samples.png)) are smooth colour patterns rather than realistic scenes.
+
 ### Dashboard
 
 All screenshots are rendered from the real application by `DashboardSnapshotTool` (`results/ui_snapshots/`). The per-image numbers apply to that one image only.
@@ -427,12 +483,24 @@ More views: [overlay](results/ui_snapshots/03_levir_test_7_deep_overlay.png), [g
 
 ---
 
+## Responsible use
+
+- **What it is for.** Finding where buildings appeared or disappeared between two co-registered 0.5 m images, for teaching, research and as a first screening step that a person then checks.
+- **What it is not for.** Legal, planning-enforcement or punitive decisions about a specific property or person; monitoring individuals; any area, sensor or resolution it was not evaluated on. "Encroachment" in this project means detected building change, not a legal finding: the system knows nothing about property boundaries or permits.
+- **Human review.** Every detection that matters must be checked against the images by a person. The model misses many small structures (17.6 % of changes under 25 m² found) and confuses some objects, such as rows of vehicles, with buildings.
+- **Fairness.** Because small buildings are missed more often, the model would under-report small and informal structures. It was trained and tested only on images of Texas, USA, so its behaviour elsewhere is unknown.
+- **Privacy and data terms.** The imagery shows private property. LEVIR-CD may be used for academic research only, and the trained change-detection weights inherit that restriction.
+- **Generated and synthetic images.** VAE outputs and the bundled demo pair are not observations of real places and must never be presented as such.
+- **Who is accountable.** The system reports numbers with their sources and limits; the people who use its output are responsible for decisions based on it.
+
+---
+
 ## Limitations
 
 - **LEVIR-CD labels building changes only** (construction and demolition). Results on it say nothing about deforestation, roads, water or general land-use change; such genuine changes count as false positives under its labels.
 - **The classical baseline** reacts to any brightness difference: illumination, sun angle, season, haze and small registration errors all produce false positives, and Otsu always splits the histogram, even when nothing changed.
 - **FC-Siam-diff is order-symmetric.** Its decoder only sees |enc(A) − enc(B)|, so swapping the two dates gives the same output (checked in inference mode by `FcSiamDiffTest`): it cannot tell construction from demolition.
-- **No ground-sample-distance calibration** exists for arbitrary inputs. The dashboard reports areas in pixels only, and its "change level" is a heuristic based on the share of changed pixels, not a verified assessment.
+- **No ground-sample-distance calibration** exists for arbitrary inputs. The dashboard reports areas in pixels only (the m² figures above use LEVIR-CD's known 0.5 m pixels and hold only for imagery of that resolution), and its "change level" is a heuristic based on the share of changed pixels, not a verified assessment.
 - **Small and rebuilt buildings are the deep model's weak spots.** It finds only 17.6 % of true change regions under 25 m² and misses sites where one building replaces another, because both dates show a roof (see "Where the deep model still fails").
 - **The bundled demo pair is synthetic**, not real satellite imagery.
 - **Training is not bit-reproducible.** Augmentation draws from an unseeded `ThreadLocalRandom`, and GPU (MPS) kernels are not guaranteed deterministic. Three full runs with different seeds give test F1 0.8650 ± 0.0058; three runs are only a rough estimate of the spread.

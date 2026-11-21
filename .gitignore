@@ -47,3 +47,6 @@ __pycache__/
 
 # design-skill working files
 .taste-skill/
+
+# Temporary transfer folders from external training
+send_back_*/

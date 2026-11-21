@@ -312,6 +312,8 @@ $$\lVert \mathbf{w} + \eta y \mathbf{x} \rVert^2 = \lVert \mathbf{w} \rVert^2 + 
 
 so the norm can never decrease. To first order in $\eta$, Oja's rule instead gives $\lVert \mathbf{w} + \Delta\mathbf{w} \rVert^2 \approx \lVert \mathbf{w} \rVert^2 + 2\eta y^2 (1 - \lVert \mathbf{w} \rVert^2)$, which drives the norm to 1.
 
+*Oja's rule and the SVD.* For zero-mean data, Oja's weight vector converges to the leading eigenvector of $E[\mathbf{x}\mathbf{x}^\top] = X^\top X / n$, where the rows of $X$ are the samples. That eigenvector is the first right singular vector of $X$. To check this independently, `SingularValueDecomposition` (package `fundamentals.math`) computes $X = U\,\mathrm{diag}(s)\,V^\top$ from scratch with the one-sided Jacobi method [30]: it rotates pairs of columns of $X$ until all columns are orthogonal; the column lengths are then the singular values, and the accumulated rotations form $V$. Keeping the $k$ largest singular values gives the best rank-$k$ approximation (Eckart–Young [31]), and the unit tests check exactly that, together with $U^\top U = V^\top V = I$ and $X = U S V^\top$.
+
 *Boltzmann machine.* A joint state has probability $P(\mathbf{s}) = e^{-E(\mathbf{s})/T} / Z$ (here $T = 1$). Gibbs sampling updates one unit at a time with $P(s_i = 1 \mid \text{rest}) = \sigma(h_i / T)$, where $h_i = \sum_j w_{ij} s_j + b_i$. The learning rule is gradient ascent on the average log-likelihood of the data. Because the demo machine has only 3 units, the exact distribution can also be enumerated over all $2^3$ states, so the Gibbs estimates and the log-likelihood can be checked exactly.
 
 ### 6.4 Deep change-detection model: FC-Siam-diff
@@ -425,6 +427,48 @@ The **TEST** split is never read during training; only its size is printed. `Eva
 - **Selection.** The epoch with the highest validation accuracy (ties broken by macro F1). Metrics come from `com.landwatch.evaluation.MulticlassMetrics`: a K×K confusion matrix, per-class precision, recall and F1, macro averages and overall accuracy. It is unit-tested against hand-computed values.
 
 ---
+
+### 6.6 Extensions: Transformer, ablations, VAE and area error
+
+These were added after the first evaluation, to cover course topics that the first version had listed as future work. They keep the same split discipline: training on TRAIN, every choice on VAL, and one TEST evaluation per new model.
+
+#### 6.6.1 FC-Siam-diff + Transformer
+
+FC-Siam-diff compares the two dates only through convolutions, and each convolution sees a small neighbourhood. Self-attention [27] lets every location look at every location of both images at once. Following the idea of BIT [28], `BitemporalTransformer` works on the bottleneck of the shared encoder:
+
+- The bottleneck feature maps of both dates (128 channels, 16×16 for a 256×256 patch) become one sequence of 2 × 256 tokens of size 128.
+- A fixed 2-D sinusoidal position code is added (the same code for A and B at the same place; nothing learned, so any image size works).
+- Two pre-norm Transformer encoder layers follow: $\mathbf{x} \leftarrow \mathbf{x} + \mathrm{MHSA}(\mathrm{LN}(\mathbf{x}))$, then $\mathbf{x} \leftarrow \mathbf{x} + \mathrm{MLP}(\mathrm{LN}(\mathbf{x}))$, with 4 heads of size 32 and an MLP 128 → 256 → 128 with GELU, then a final LayerNorm.
+- Multi-head self-attention is written out with array operations: $Q = XW_Q$, $K = XW_K$, $V = XW_V$, and per head $\mathrm{softmax}(QK^\top/\sqrt{d})\,V$, heads concatenated and projected by $W_O$.
+- The tokens are reshaped back, and the decoder starts from $|T(A) - T(B)|$ instead of $|\mathrm{enc}(A) - \mathrm{enc}(B)|$.
+
+Everything else (encoder, decoder, loss, augmentation, optimiser, schedule, 13 epochs, seed 42, threshold sweep on VAL) is identical to the shipped FC-Siam-diff, so a difference in the results can be attributed to the Transformer. It adds 265,216 parameters (1,614,001 in total; the count is asserted by a test). No date embedding is added, so swapping A and B still gives the same change map; a test checks this too.
+
+Two differences from BIT: BIT compresses each image into a few "semantic tokens" and refines the pixel features with a Transformer decoder, while here every bottleneck position is a token and the convolutional decoder of FC-Siam-diff is kept. An LSTM was not built: LEVIR-CD has exactly two dates per site, so a recurrent model would run over a sequence of length two, which says nothing about temporal modelling.
+
+#### 6.6.2 Ablation study
+
+One part of the shipped training recipe is switched off, with everything else (including seed 42) as in run 2: the **Dice term** of the loss, leaving weighted BCE only (`--dice-weight 0`). The trainer can also switch off the augmentation (`--augment false`), but that run was not made for lack of time. The Transformer comparison (Section 6.6.1) is a second controlled ablation, of the architecture.
+
+Ablations are compared on **VAL only** (best F1 of the validation threshold sweep, plus F1 at 0.50). TEST is not used, so no ablation can influence the shipped model. The three-seed spread of the full recipe on VAL (0.8715 ± 0.0028, Section 8.3) is the yardstick: smaller differences are not evidence of anything.
+
+#### 6.6.3 Variational autoencoder on EuroSAT
+
+`EuroSatVae` is a convolutional VAE [29] for 64×64 RGB EuroSAT patches with pixel values in [0, 1]:
+
+- **Encoder:** four 4×4 convolutions with stride 2 and ReLU (32, 64, 128, 256 channels; 64 → 4 px), then a linear layer to $\boldsymbol\mu$ and $\log\boldsymbol\sigma^2$ of a 64-dimensional latent code.
+- **Sampling:** the reparameterisation trick $\mathbf{z} = \boldsymbol\mu + \boldsymbol\sigma \odot \boldsymbol\varepsilon$, $\boldsymbol\varepsilon \sim N(0, I)$, so gradients flow through $\boldsymbol\mu$ and $\boldsymbol\sigma$. In inference $\mathbf{z} = \boldsymbol\mu$.
+- **Decoder:** a linear layer back to 256×4×4, four steps of 2× nearest upsampling and 3×3 convolution with ReLU, and a 3×3 convolution to 3 channels of logits. (Upsampling plus convolution replaces transposed convolution, which the DJL PyTorch engine does not provide.)
+- **Loss:** the negative evidence lower bound, $\mathcal{L} = \sum_{\text{pixels}} \mathrm{BCE}(\sigma(\text{logits}), x) + \mathrm{KL}(N(\boldsymbol\mu, \boldsymbol\sigma^2)\,\|\,N(0, I))$ with $\mathrm{KL} = -\tfrac12 \sum (1 + \log\sigma^2 - \mu^2 - \sigma^2)$, per image in nats.
+- **Training:** EuroSAT TRAIN (18,900 images) without labels, D4 augmentation, Adam with cosine decay 1e-3 → 1e-5, batch 64, 25 epochs, seed 42. The epoch with the lowest VAL negative ELBO is kept; TEST is evaluated once.
+
+The VAE is a generative model: decoding random $\mathbf{z} \sim N(0, I)$ gives new images, which the classifier and the change detector cannot do. Its reconstructions are compared with a trivial reference, always predicting the mean TRAIN image. It is an experiment on EuroSAT and is not used by the change detector.
+
+#### 6.6.4 Area estimation error
+
+LEVIR-CD has a known ground sample distance of 0.5 m per pixel, so one pixel covers 0.25 m². `AreaEstimationError` converts the true and predicted changed-pixel counts of each test image into square metres and compares them: the error of the total area, the mean and median absolute error per image, the relative error per image (for images with at least 1,000 true change pixels, i.e. 250 m², because a few pixels of a tiny change give meaningless percentages), the false area on images without change, and the correlation between true and predicted areas. It reads the per-image counts that the evaluations already wrote, so it runs no model and does not use the test images again.
+
+An area can be right while the location is wrong, because false alarms and misses cancel in a total. Area error therefore complements IoU and F1; it does not replace them.
 
 ## 7. Evaluation methodology
 
@@ -728,10 +772,25 @@ Source: `results/fundamentals/learning_rules_demo_output.txt` (seed 42; the outp
 |---|---|---|
 | Hebbian | 500 zero-mean 2-D points (std 2.0 along 30°, 0.5 across); principal eigenvector $e_1$ = [0.8660, 0.5000]; $\eta$ = 0.001, 8 epochs | \|w\| per epoch: 0.420, 2.45, 16.0, 104, 682, 4.46e+03, 2.92e+04, 1.91e+05, 1.25e+06; grew by a factor of 2.97e+06; \|cos(w, $e_1$)\| = 1.0000. The direction is right, but the length explodes. |
 | Oja | same data and start; $\eta$ = 0.005, 30 epochs | \|w\| = 1.0003 after epochs 1 and 5, 1.0004 after 30; final w = [0.8649, 0.5028]; angle error 0.17°. The weight vector is self-normalised and is the first principal component. |
+| SVD check | the same 500 × 2 data matrix, one-sided Jacobi SVD | singular values 43.455 and 11.348, i.e. mean squared projections 3.777 and 0.258 (std 2.0 and 0.5 give 4 and 0.25); top right singular vector $v_1$ = [0.8667, 0.4989]; \|cos($v_1$, $e_1$)\| = 1.00000 and \|cos($w_{\text{Oja}}$, $v_1$)\| = 0.99999. One neuron with Oja's rule finds what the SVD computes directly. |
 | Competitive | 3 Gaussian clusters × 100 points (std 0.5) at (0, 4), (−4, −2), (4, −2); $\eta$ = 0.1, 20 epochs | mean distance to the winning prototype 3.948 → 0.649; the three prototypes end 0.213, 0.062 and 0.198 from three different cluster centres. |
 | Perceptron | AND, OR, XOR truth tables | AND and OR: converged in 2 epochs, 100 % accuracy. XOR: not converged after 1000 epochs, 25 % at the end, best 50 % at any epoch boundary. |
 | LMS | $t = 2x_1 - 3x_2 + 0.5x_3 + 1$, 200 noiseless samples in $[-1, 1]^3$; $\eta$ = 0.05, 100 epochs | MSE 5.966 → 9.571e-31 (4.440e-24 after epoch 10); learned w = [2.0000, −3.0000, 0.5000], b = 1.0000, the true values. |
 | Boltzmann | 3 binary units; training patterns 000, 001, 110, 111 (unit 0 always equals unit 1); $\eta$ = 0.5, 300 epochs × 1000 Gibbs samples | average log-likelihood −2.0794 → −1.4314 (best possible ln(1/4) = −1.3863); $w_{01}$ = 6.285, $w_{02}$ = −0.052, $w_{12}$ = −0.020; in 10,000 free-running samples $s_0 = s_1$ in 95.8 % (chance 50 %). |
+
+**SVD on an image (low-rank approximation).** `SvdImageDemo` decomposes the grey levels of a EuroSAT test tile (`Residential_9.jpg`, 64 × 64) with the same from-scratch SVD (44 ms, 12 Jacobi sweeps, max \|X − USVᵀ\| = 7.22e-15) and keeps only the k largest singular values. Source: `results/fundamentals/svd_demo_output.txt`, which also prints U, S and Vᵀ for a 4 × 3 worked example.
+
+| Rank k | Energy kept (Σ s²) | Relative error | PSNR | Numbers stored (of 4,096) |
+|---|---|---|---|---|
+| 1 | 97.40 % | 0.1612 | 26.41 dB | 129 |
+| 4 | 98.41 % | 0.1262 | 28.53 dB | 516 |
+| 8 | 99.06 % | 0.0968 | 30.84 dB | 1,032 |
+| 16 | 99.63 % | 0.0606 | 34.91 dB | 2,064 |
+| 32 | 99.95 % | 0.0226 | 43.49 dB | 4,128 |
+
+![Grey-level tile and its rank-1, 4, 16 and 32 approximations](results/fundamentals/svd_low_rank.png)
+
+The first singular value alone carries 97.4 % of the energy, mostly the tile's overall brightness; the next few add the large structures, and the fine texture of streets and roofs needs many. Storing $k(m+n+1)$ numbers only saves space while $k$ stays well below $mn/(m+n+1) \approx 32$ here.
 
 The Boltzmann machine's learned distribution (same source):
 
@@ -793,6 +852,95 @@ Sources: `results/eurosat/training_log.csv`, `val_metrics.txt`, `test_metrics.tx
 - **Single run.** There is one training run, with no variance over seeds.
 
 ---
+
+### 8.7 Area estimation error on LEVIR-CD test
+
+Source: `results/deeplearning/test_area_error.txt`, computed by `AreaEstimationError` (Section 6.6.4) from `results/benchmarks/baseline_test_per_image.csv` and `results/deeplearning/test_per_image.csv`; 0.5 m per pixel, 128 test images.
+
+| Measure | Classical baseline | FC-Siam-diff |
+|---|---|---|
+| True changed area (all 128 images) | 1,709,351 m² (170.94 ha) | 1,709,351 m² (170.94 ha) |
+| Predicted changed area | 6,699,330 m² (669.93 ha) | 1,700,331 m² (170.03 ha) |
+| Error of the total | +291.92 % | **−0.53 %** |
+| Absolute error per image: mean / median | 39,419 / 34,975 m² | 1,132 / 422 m² |
+| Relative error per image, median (quartiles), 108 images ≥ 250 m² | 317.4 % (118.1–756.7 %) | **6.5 %** (3.0–11.8 %) |
+| Images within ±10 % / ±25 % of the true area | 6 % / 7 % | 67 % / 93 % |
+| False area on the 10 images without change (mean) | 50,914 m² | 172 m² |
+| Correlation of true and predicted area across images | r = 0.0177 | r = 0.9883 |
+
+**Reading the results.** The deep model estimates how much was built very well: its total is 0.53 % below the truth, and for two thirds of the images the area is within 10 %. The baseline's area estimates are almost unrelated to the truth (r = 0.02), because it flags illumination and vegetation differences as change. The deep model's total is close partly because false alarms (873,175 px) and misses (909,257 px) nearly cancel, which is why this measure is reported next to F1 and IoU (Section 8.3), not instead of them.
+
+### 8.9 Controlled comparisons and ablation
+
+Each experiment below changes one thing and keeps everything else fixed. Choices were made on VAL; TEST numbers appear only where that model was scored on TEST once anyway. Differences smaller than the seed spread (VAL F1 ±0.0028, TEST F1 ±0.0058; experiment E) are not treated as evidence.
+
+**A. Learned features vs. a fixed rule.**
+- *Hypothesis:* a network that learns what a relevant change looks like beats brightness differencing.
+- *Changed:* the method (classical baseline vs. FC-Siam-diff). *Held fixed:* the same 134,217,728 test pixels, the same metric code (`BinaryChangeMetrics`), one TEST evaluation each.
+- *Result (TEST):* change F1 0.1008 → 0.8693, IoU 0.0531 → 0.7688, area error of the total +291.92 % → −0.53 % (Sections 8.4 and 8.7).
+- *Conclusion:* confirmed by a margin far larger than any noise.
+
+**B. Training length.**
+- *Hypothesis:* run 1 was under-fitted because its time budget stopped it at epoch 7 of 13.
+- *Changed:* epochs completed (7 vs. 13). *Held fixed:* data, architecture, loss, augmentation, optimiser and the 13-epoch cosine schedule, seed 42.
+- *Result:* VAL F1 0.8554 → 0.8738; TEST F1 0.8548 → 0.8693. The selection rule (higher VAL F1 wins) was fixed before run 2.
+- *Conclusion:* confirmed; validation F1 was still rising at epoch 7 (Section 8.3).
+
+**C. Dice term of the loss (ablation, VAL only).**
+- *Hypothesis:* the soft Dice term helps on the 4.65 % change class.
+- *Changed:* `--dice-weight 1` vs. `0` (weighted BCE only). *Held fixed:* everything else, seed 42, 13 epochs, threshold sweep 0.05–0.95 on VAL.
+- *Result:* best VAL F1 0.8738 (threshold 0.65) with Dice vs. 0.8725 (threshold 0.75) without; at the untuned threshold 0.50, 0.8725 vs. 0.8470. Without Dice the model over-predicts change at 0.50 (precision 0.7738, recall 0.9354). Sources: `results/deeplearning/val_threshold_sweep.csv`, `results/deeplearning_no_dice/val_metrics.txt`.
+- *Conclusion:* the best achievable F1 is the same within the seed spread (difference 0.0013). The Dice term's real effect here is on the operating point: with it, the default threshold 0.5 is already almost optimal. With validation threshold tuning, either loss works.
+
+**D. Transformer at the bottleneck (architecture ablation).**
+- *Hypothesis:* global self-attention across both dates improves on purely convolutional comparison.
+- *Changed:* FC-Siam-diff vs. FC-Siam-diff + Transformer (Section 6.6.1). *Held fixed:* encoder, decoder, loss, augmentation, optimiser, schedule, 13 epochs, seed 42, threshold selection on VAL, one TEST evaluation.
+- *Result:* VAL F1 0.8711 (Transformer) vs. 0.8738 (convolutional), difference −0.0027; TEST F1 0.8662 vs. 0.8693, difference −0.0031. Sources: `results/deeplearning_transformer/val_metrics.txt`, `results/deeplearning/val_metrics.txt`.
+- *Conclusion:* both differences are within the seed spread (VAL ±0.0028, TEST ±0.0058). Self-attention at the bottleneck neither helps nor hurts on LEVIR-CD at this model size; the convolutional skip connections already carry enough spatial detail for the 256×256 patches.
+
+**E. Run-to-run variation (three seeds).**
+- *Question:* how much does a retrain move the score?
+- *Changed:* the seed (42, 7, 123). *Held fixed:* the full recipe.
+- *Result:* TEST F1 0.8650 ± 0.0058, VAL F1 0.8715 ± 0.0028 (Section 8.3).
+- *Use:* the yardstick for experiments C and D.
+
+**F. Decision threshold and post-processing (VAL only).**
+- *Changed:* the change threshold of FC-Siam-diff (0.05–0.95), and the baseline's `minRegionSize` (Section 8.2). *Held fixed:* the trained model or the baseline pipeline.
+- *Result:* FC-Siam-diff's VAL F1 is flat between 0.60 and 0.70 (0.8737, 0.8738, 0.8736); 0.65 was chosen. No `minRegionSize` lifts the baseline's VAL F1 meaningfully.
+- *Conclusion:* the deep model is not sensitive to the exact threshold; the baseline's weakness is not a post-processing problem.
+
+### 8.10 Variational autoencoder on EuroSAT
+
+Sources: `results/eurosat_vae/` (`training_log.csv`, `val_metrics.txt`, `test_metrics.txt`, `test_per_class.csv`, `test_reconstructions.png`, `prior_samples.png`) and `models/eurosat_vae/vae.properties`.
+
+**Training.** 25 epochs in 868 s (14.5 min) on `mps(0)`; 1,878,211 parameters. The validation negative ELBO fell to 7,624.27 nats per image at epoch 24, which was kept. TEST was evaluated once.
+
+| Split | Reconstruction (nats) | KL (nats) | Negative ELBO | MSE | PSNR | Mean-image baseline MSE (PSNR) |
+|---|---|---|---|---|---|---|
+| val (4,050) | 7,597.56 | 26.71 | 7,624.27 | 0.004305 | 23.66 dB | 0.023643 (16.26 dB) |
+| test (4,050) | 7,581.30 | 27.40 | 7,608.70 | 0.004420 | **23.55 dB** | 0.025164 (15.99 dB) |
+
+On test the VAE's reconstructions have 82.4 % lower mean squared error than always predicting the mean TRAIN image.
+
+Reconstruction quality per class (test, from `test_per_class.csv`):
+
+| Class | PSNR | Class | PSNR |
+|---|---|---|---|
+| Forest | 31.48 dB | AnnualCrop | 24.67 dB |
+| SeaLake | 31.00 dB | HerbaceousVegetation | 24.65 dB |
+| Pasture | 27.34 dB | Highway | 23.20 dB |
+| River | 24.79 dB | PermanentCrop | 22.99 dB |
+| Residential | 21.93 dB | Industrial | 18.12 dB |
+
+![VAE reconstructions: first row one EuroSAT test image per class, second row the reconstructions](results/eurosat_vae/test_reconstructions.png)
+
+![Twenty images decoded from random codes drawn from N(0, I)](results/eurosat_vae/prior_samples.png)
+
+**Reading the results.**
+- **What it keeps and loses.** The reconstructions keep each scene's colours and coarse layout but lose fine detail: roads, field boundaries and individual buildings blur away, and the river in the ninth image disappears. This is the known behaviour of a VAE with a pixel-wise likelihood and a small code. The KL term of 27.40 nats per image measures how much information the 64-number code carries on average, very little compared with a 64×64×3 image.
+- **Which classes are hard.** Uniform scenes (forest, sea and lakes, pasture) compress well, above 27 dB. Scenes with many small high-contrast structures (industrial, residential, permanent crops) are the hardest, 18–23 dB. The order follows how much fine structure a class has.
+- **Generation.** Images decoded from random codes are smooth colour fields with blobs in plausible land-cover colours, not realistic scenes. The model has learned the overall distribution of colours and textures, not sharp structures.
+- **What it shows.** A working generative model with the reparameterisation trick and the ELBO, trained and evaluated with the same split discipline as the other models. A sharper generator would need a larger model, a perceptual or adversarial loss (a GAN), or both.
 
 ## 9. The JavaFX dashboard
 
@@ -864,6 +1012,7 @@ When a label is loaded, **Against the label** shows F1, IoU, precision and recal
 | Change detection | the analysis screen described above |
 | Failure analysis | the ten worst baseline test images by per-image F1 (from `baseline_test_per_image.csv`), each with an "Open pair" button, plus the documented limitations |
 | Benchmarks | baseline vs. deep model on LEVIR-CD val and test (F1, IoU, precision, recall, κ), plus EuroSAT. Every value is parsed from `results/` when the page opens; a missing file shows "not available", never a hard-coded number |
+| Land use (EuroSAT) | classifies an opened image or a random EuroSAT test image with the ResNet and shows all 10 class probabilities and, for dataset images, the true label; a gallery classifies 12 test images live (random, one per class, or from the 82 recorded errors); the recorded test metrics are read from `results/eurosat/test_metrics.txt`. It refuses to classify LEVIR-CD pairs (0.5 m imagery, outside the classifier's 10 m domain) and says so |
 | NN fundamentals | buttons that run XOR training, the gradient check and the learning-rules demo live on a background thread, with the same seeds as the tests |
 | About and runtime | Java, JavaFX, DJL and PyTorch versions, inference device, model directory and status, whether the dataset and each results file were found; paths under the home folder are shown with `~` |
 
@@ -903,7 +1052,7 @@ Each run writes four files to `results/` with the prefix `landwatch_<engine-id>_
 
 | Package / folder | Responsibility |
 |---|---|
-| `com.landwatch.fundamentals.math` | `Vector`, `Matrix` |
+| `com.landwatch.fundamentals.math` | `Vector`, `Matrix`, `SingularValueDecomposition` (one-sided Jacobi) |
 | `com.landwatch.fundamentals.neurons` | McCulloch–Pitts and sigmoid neurons |
 | `com.landwatch.fundamentals.mlp` | activations, dense `Layer`, `MultilayerPerceptron` |
 | `com.landwatch.fundamentals.backprop` | `BackpropagationEngine`, `LossFunction` (half-MSE) |
@@ -911,11 +1060,13 @@ Each run writes four files to `results/` with the prefix `landwatch_<engine-id>_
 | `com.landwatch.fundamentals.gradientcheck` | central-difference `GradientChecker` |
 | `com.landwatch.fundamentals.learningrules` | Hebbian, Oja, competitive, perceptron, LMS, Boltzmann, demo |
 | `com.landwatch.geospatial` | image loading and validation, luminance, `BaselineChangeDetector`, visualisation |
-| `com.landwatch.evaluation` | `BinaryChangeMetrics`, `MulticlassMetrics`, `LevirCdPairReader`, `BaselineBenchmark`, `BaselineMinRegionSweep` |
-| `com.landwatch.deeplearning` | `FcSiamDiff`, `BceDiceLoss`, `D4Augmentation`, `Normalization`, dataset classes, training / evaluation / prediction CLIs, `DeepChangeDetector`, `AnalyzeTestErrors`, `DeviceBenchmark` |
-| `com.landwatch.deeplearning.eurosat` | `EuroSatResNet`, `ResidualBlock`, `EuroSatSplit`, data and training classes, `TrainEuroSatClassifier` / `EvaluateEuroSatClassifier` / `PredictEuroSatClass`, `EuroSatClassifier` |
-| `com.landwatch.ui` | `DashboardController`, engines, views, `ResultExporter` |
+| `com.landwatch.evaluation` | `BinaryChangeMetrics`, `MulticlassMetrics`, `LevirCdPairReader`, `BaselineBenchmark`, `BaselineMinRegionSweep`, `AreaEstimationError` |
+| `com.landwatch.deeplearning` | `FcSiamDiff`, `BitemporalTransformer`, `BceDiceLoss`, `D4Augmentation`, `Normalization`, dataset classes, training / evaluation / prediction CLIs, `DeepChangeDetector`, `AnalyzeTestErrors`, `DeviceBenchmark` |
+| `com.landwatch.deeplearning.eurosat` | `EuroSatResNet`, `ResidualBlock`, `EuroSatSplit`, data and training classes, `TrainEuroSatClassifier` / `EvaluateEuroSatClassifier` / `PredictEuroSatClass`, `EuroSatClassifier`; the VAE: `EuroSatVae`, `VaeLoss`, `TrainEuroSatVae`, `EvaluateEuroSatVae` |
+| `com.landwatch.ui` | `DashboardController`, engines (incl. `EuroSatEngine`), views, pages (incl. `EuroSatPage`), `ResultExporter` |
 | `python_dataprep/` | LEVIR-CD inspection and tiling; synthetic demo generator |
+| `scripts/` | Windows setup and NVIDIA-GPU training scripts (PowerShell) |
+| `docs/` | dataset card and model card |
 
 The fundamentals, geospatial and evaluation packages depend only on the JDK. Only `deeplearning` depends on DJL, and only `ui` depends on JavaFX. The baseline benchmarks and the learning-rules demo therefore run with nothing but `target/classes` on the classpath.
 
@@ -994,7 +1145,7 @@ LEVIR-CD labels construction and demolition of buildings, nothing else. Genuine 
 
 ### 11.3 No ground-sample distance for arbitrary inputs
 
-A user-supplied image carries no reliable resolution information in this application, so no conversion from pixels to square metres is made. All areas are pixel counts, and the dashboard's change level is a heuristic on the share of changed pixels. It is not an assessment of encroachment or of any legal status.
+A user-supplied image carries no reliable resolution information in this application, so the dashboard makes no conversion from pixels to square metres. Its areas are pixel counts, and its change level is a heuristic on the share of changed pixels. It is not an assessment of encroachment or of any legal status. For LEVIR-CD the resolution is known (0.5 m per pixel), so the evaluation reports areas in m² there (Sections 6.6.4 and 8.7); that conversion is only valid for imagery of the same resolution.
 
 ### 11.4 Training is not bit-reproducible
 
@@ -1022,23 +1173,37 @@ Learning XOR shows that the from-scratch backpropagation is correct. It does not
 - **Small and rebuilt buildings.** The deep model finds only 17.6 % of true change regions under 25 m², and it misses much of the change where one building replaces another (Section 8.4). Its pixel-level test F1 hides these weaknesses, because small regions carry few pixels.
 - **Synthetic demo.** The bundled pair is synthetic; the dashboard's behaviour on it says nothing about accuracy on real imagery.
 
+### 11.9 Responsible use
+
+- **What it is for.** Finding where buildings appeared or disappeared between two co-registered 0.5 m images, for teaching, research and as a first screening step that a person then checks.
+- **What it is not for.** Legal, planning-enforcement or punitive decisions about a specific property or person; monitoring individuals; any area, sensor or resolution it was not evaluated on. "Encroachment" in this project means detected building change, not a legal finding: the system knows nothing about property boundaries or permits.
+- **Human review.** Every detection that matters must be checked against the images by a person. The model misses many small structures (17.6 % of changes under 25 m² found) and confuses some objects, such as rows of vehicles, with buildings.
+- **Fairness.** Because small buildings are missed more often, the model would under-report small and informal structures. It was trained and tested only on images of Texas, USA, so its behaviour elsewhere is unknown.
+- **Privacy and data terms.** The imagery shows private property. LEVIR-CD may be used for academic research only, and the trained change-detection weights inherit that restriction.
+- **Generated and synthetic images.** VAE outputs and the bundled demo pair are not observations of real places and must never be presented as such.
+- **Who is accountable.** The system reports numbers with their sources and limits; the people who use its output are responsible for decisions based on it.
+
 ---
 
 ## 12. Future work
 
-The following roadmap items are **not done** in this project. They are listed as next steps.
+The roadmap of the original handover listed more model families than one project can cover well. Their status, stated plainly:
 
 | Item | Purpose | Status |
 |---|---|---|
-| LoveDA semantic segmentation | per-pixel land-cover maps instead of per-patch labels | not done |
-| OSCD multispectral change detection | use Sentinel-2's 13 bands, not only RGB, and test a coarser resolution | not done |
-| Instance segmentation of buildings | count and outline individual changed buildings | not done |
-| Object detection | bounding boxes for changed objects from a learned detector | not done |
-| LSTM / Transformer temporal models | use longer image time series instead of two dates | not done |
-| VAE / GAN | generative models, e.g. for augmentation or unsupervised change detection | not done |
-| Ablation studies | FC-EF vs. FC-Siam-diff; augmentation on/off; loss variants (BCE only, Dice only, other $w_+$) | not done |
-| More seeds | a tighter estimate of the spread than the three runs of Section 8.3 | not done |
-| GSD-aware area estimation | read georeferencing metadata and report areas in m² where the resolution is known | not done |
+| Binary semantic segmentation of change | a label for every pixel | **done**: FC-Siam-diff and its Transformer variant are encoder–decoder segmentation networks for the two classes change / no change |
+| Multi-class land-cover segmentation (LoveDA) | per-pixel land-cover maps instead of per-patch labels | not done |
+| Transformer | relate every location of both dates with self-attention | **done** (Sections 6.6.1 and 8.8) |
+| LSTM over image time series | model longer sequences than two dates | not done: LEVIR-CD has two dates per site, so there is no sequence to learn from |
+| VAE | a generative model of land-cover patches | **done** on EuroSAT (Sections 6.6.3 and 8.10) |
+| GAN | adversarial generation, e.g. for augmentation | not done |
+| Ablation studies | which parts of the recipe matter | **partly done**: the Dice term (VAL) and the Transformer (VAL and TEST) (Sections 6.6.2, 8.8 and 8.9); augmentation on/off not run; FC-EF vs. FC-Siam-diff and other loss weights not done |
+| Area estimation error | how much changed, in m² | **done** for LEVIR-CD's known 0.5 m pixels (Sections 6.6.4 and 8.7); reading georeferencing metadata for arbitrary inputs not done |
+| SVD | the linear-algebra basis of PCA | **done** from scratch and checked against Oja's rule (Sections 6.3 and 8.5) |
+| Instance segmentation of buildings | count and outline individual changed buildings with a learned model | not done; the error analysis counts connected change regions (Section 8.3), which is post-processing, not instance segmentation |
+| Object detection | bounding boxes from a learned detector | not done; the classical baseline only draws boxes around connected regions |
+| OSCD multispectral change detection | use Sentinel-2's 13 bands and a coarser resolution | not done |
+| More seeds | a tighter estimate of the spread than three runs | not done |
 
 Two smaller engineering items follow from this report. A third one, training for the full schedule, has been done (Section 8.3).
 
@@ -1090,6 +1255,13 @@ The main limits are the scope of the labels (building change only), the lack of 
 24. A. Paszke et al., "PyTorch: An Imperative Style, High-Performance Deep Learning Library," in *Advances in Neural Information Processing Systems (NeurIPS)*, 2019.
 25. O. Ronneberger, P. Fischer and T. Brox, "U-Net: Convolutional Networks for Biomedical Image Segmentation," in *Proc. Medical Image Computing and Computer-Assisted Intervention (MICCAI)*, 2015.
 26. ITU-R Recommendation BT.601, "Studio encoding parameters of digital television for standard 4:3 and wide-screen 16:9 aspect ratios."
+27. A. Vaswani et al., "Attention Is All You Need," in *Advances in Neural Information Processing Systems (NeurIPS)*, 2017.
+28. H. Chen, Z. Qi and Z. Shi, "Remote Sensing Image Change Detection With Transformers," *IEEE Transactions on Geoscience and Remote Sensing*, vol. 60, 2022.
+29. D. P. Kingma and M. Welling, "Auto-Encoding Variational Bayes," in *Proc. International Conference on Learning Representations (ICLR)*, 2014.
+30. M. R. Hestenes, "Inversion of Matrices by Biorthogonalization and Related Results," *Journal of the Society for Industrial and Applied Mathematics*, vol. 6, no. 1, pp. 51–90, 1958.
+31. C. Eckart and G. Young, "The Approximation of One Matrix by Another of Lower Rank," *Psychometrika*, vol. 1, no. 3, pp. 211–218, 1936.
+32. M. Mitchell et al., "Model Cards for Model Reporting," in *Proc. Conference on Fairness, Accountability, and Transparency (FAT\*)*, 2019.
+33. T. Gebru et al., "Datasheets for Datasets," *Communications of the ACM*, vol. 64, no. 12, pp. 86–92, 2021.
 
 ---
 
@@ -1170,6 +1342,21 @@ java -cp "$CP" com.landwatch.deeplearning.AnalyzeTestErrors test
 
 # CPU vs MPS step-time benchmark on a synthetic batch: [batchSize] [steps] [patchSize]
 java -cp "$CP" com.landwatch.deeplearning.DeviceBenchmark 8 12 256
+
+# FC-Siam-diff + Transformer (Section 6.6.1): same recipe, different --arch; then VAL, then TEST once
+java -cp "$CP" com.landwatch.deeplearning.TrainChangeDetector --data datasets/LEVIR-CD/processed_256 \
+    --out models/siamese_unet_levir_transformer --results results/deeplearning_transformer \
+    --epochs 13 --batch 8 --lr 1e-3 --device mps --max-minutes 400 --seed 42 --arch fc-siam-diff-transformer
+java -cp "$CP" com.landwatch.deeplearning.EvaluateChangeDetector val  --model models/siamese_unet_levir_transformer --results results/deeplearning_transformer
+java -cp "$CP" com.landwatch.deeplearning.EvaluateChangeDetector test --model models/siamese_unet_levir_transformer --results results/deeplearning_transformer
+
+# Ablation (Section 6.6.2), VAL only: same command as the shipped run plus --dice-weight 0
+java -cp "$CP" com.landwatch.deeplearning.TrainChangeDetector ... --out models/siamese_unet_levir_no_dice --results results/deeplearning_no_dice --dice-weight 0
+
+# Area estimation error from the recorded per-image counts (Section 8.7)
+java -cp target/classes com.landwatch.evaluation.AreaEstimationError
+
+# On Windows with an NVIDIA GPU (CUDA 12.8 build of PyTorch): scripts/train-gpu-windows.ps1 -Job check | transformer | no-augmentation | no-dice
 ```
 
 The first DJL command downloads libtorch (about 200 MB) into `~/.djl.ai`.
@@ -1187,7 +1374,15 @@ java -cp "$CP" com.landwatch.deeplearning.eurosat.EvaluateEuroSatClassifier test
 java -cp "$CP" com.landwatch.deeplearning.eurosat.PredictEuroSatClass tile.jpg --device cpu
 ```
 
-Outputs go to `models/eurosat_resnet/` and `results/eurosat/`. MPS training is not bit-for-bit deterministic, so retraining gives close but not identical numbers. The split and CPU inference are exactly reproducible.
+The VAE (Section 6.6.3) uses the same data and split:
+
+```bash
+java -Xmx3g -cp "$CP" com.landwatch.deeplearning.eurosat.TrainEuroSatVae --latent 64 --beta 1 --epochs 25 --batch 64 --lr 1e-3 --device auto --seed 42
+java -Xmx3g -cp "$CP" com.landwatch.deeplearning.eurosat.EvaluateEuroSatVae val
+java -Xmx3g -cp "$CP" com.landwatch.deeplearning.eurosat.EvaluateEuroSatVae test   # once; also writes the image grids
+```
+
+Outputs go to `models/eurosat_resnet/` and `results/eurosat/` (classifier) and `models/eurosat_vae/` and `results/eurosat_vae/` (VAE). MPS training is not bit-for-bit deterministic, so retraining gives close but not identical numbers. The split and CPU inference are exactly reproducible.
 
 ### A.9 Dashboard and screenshots
 
