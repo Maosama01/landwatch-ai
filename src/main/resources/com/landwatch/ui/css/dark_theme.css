@@ -1010,3 +1010,114 @@
     -fx-background-color: -lw-well;
     -fx-text-fill: -lw-text;
 }
+
+/* --------------------------------------------------------------------------
+   LAND USE (EuroSAT) PAGE: probability bars, verdict pills, test gallery.
+   Green / red only mark a prediction that can be checked against its label.
+   -------------------------------------------------------------------------- */
+.pill-positive {
+    -fx-background-color: -lw-pill-positive-bg;
+    -fx-text-fill: -lw-pill-positive-ink;
+}
+
+.pill-negative {
+    -fx-background-color: -lw-pill-negative-bg;
+    -fx-text-fill: -lw-pill-negative-ink;
+}
+
+.lu-warning {
+    -fx-text-fill: -lw-warning;
+    -fx-font-size: 12px;
+}
+
+.lu-prob-name {
+    -fx-text-fill: -lw-muted;
+    -fx-font-size: 13px;
+}
+
+.lu-prob-name-top {
+    -fx-text-fill: -lw-text;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.lu-prob-value {
+    -fx-text-fill: -lw-muted;
+    -fx-font-size: 13px;
+}
+
+.lu-prob-value-top {
+    -fx-text-fill: -lw-accent-ink;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.lu-prob-track {
+    -fx-background-color: -lw-raised;
+    -fx-background-radius: 3;
+    -fx-pref-height: 8px;
+    -fx-min-height: 8px;
+    -fx-max-height: 8px;
+}
+
+.lu-prob-fill,
+.lu-prob-fill-top {
+    -fx-background-color: -lw-control;
+    -fx-background-radius: 3;
+    -fx-pref-height: 8px;
+    -fx-min-height: 8px;
+    -fx-max-height: 8px;
+}
+
+.lu-prob-fill-top {
+    -fx-background-color: -lw-accent;
+}
+
+.lu-table-cell {
+    -fx-padding: 6 10 6 10;
+}
+
+.gallery-tile {
+    -fx-background-color: -lw-raised;
+    -fx-background-radius: 12;
+    -fx-border-color: transparent;
+    -fx-border-width: 2;
+    -fx-border-radius: 12;
+    -fx-padding: 6;
+    -fx-cursor: hand;
+}
+
+.gallery-tile:hover,
+.gallery-tile-selected {
+    -fx-background-color: -lw-active;
+}
+
+.gallery-tile-selected {
+    -fx-border-color: -lw-muted;
+}
+
+.gallery-tile-wrong,
+.gallery-tile-wrong.gallery-tile-selected {
+    -fx-border-color: -lw-negative;
+}
+
+.gallery-pred {
+    -fx-text-fill: -lw-text;
+    -fx-font-size: 12px;
+}
+
+.gallery-sub {
+    -fx-text-fill: -lw-faint;
+    -fx-font-size: 11px;
+}
+
+.gallery-ok {
+    -fx-text-fill: -lw-positive;
+    -fx-font-size: 11px;
+}
+
+.gallery-wrong {
+    -fx-text-fill: -lw-negative;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}

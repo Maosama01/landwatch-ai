@@ -35,4 +35,28 @@ class ImageFitTest {
         assertEquals(1.0, ImageFit.positionAt(900, 40, 380), 1e-12);
         assertEquals(0.5, ImageFit.positionAt(100, 40, 0), 1e-12);
     }
+
+    @Test
+    @DisplayName("Small tiles are enlarged by a whole factor, each source pixel becoming an exact block")
+    void nearestEnlargement() {
+        assertEquals(8, ImageFit.nearestScale(64, 64, 512));
+        assertEquals(2, ImageFit.nearestScale(64, 64, 128));
+        assertEquals(1, ImageFit.nearestScale(1024, 1024, 512));
+        assertEquals(1, ImageFit.nearestScale(0, 0, 512));
+
+        java.awt.image.BufferedImage src = new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        src.setRGB(0, 0, 0xff0000);
+        src.setRGB(1, 0, 0x00ff00);
+        src.setRGB(0, 1, 0x0000ff);
+        src.setRGB(1, 1, 0xffffff);
+        java.awt.image.BufferedImage big = ImageFit.enlargeNearest(src, 3);
+        assertEquals(6, big.getWidth());
+        assertEquals(6, big.getHeight());
+        for (int y = 0; y < 6; y++) {
+            for (int x = 0; x < 6; x++) {
+                assertEquals(src.getRGB(x / 3, y / 3), big.getRGB(x, y), "pixel " + x + "," + y);
+            }
+        }
+        org.junit.jupiter.api.Assertions.assertSame(src, ImageFit.enlargeNearest(src, 1));
+    }
 }

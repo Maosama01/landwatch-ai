@@ -17,6 +17,19 @@ public final class AppPaths {
     public static final String RESULTS_DIR_PROPERTY = "landwatch.results.dir";
     public static final String DEFAULT_RESULTS_DIR = "results";
 
+    /**
+     * System property overriding the EuroSAT folder (the one containing {@code EuroSAT_RGB/} and
+     * {@code splits/}). Same name as the EuroSAT command-line tools use ({@code EuroSatSplit.locateDatasetRoot}).
+     */
+    public static final String EUROSAT_DIR_PROPERTY = "landwatch.eurosat.root";
+    public static final String DEFAULT_EUROSAT_DIR = "datasets/EuroSAT";
+    /** Image sub-folder of the EuroSAT folder: {@code EuroSAT_RGB/<ClassName>/*.jpg}. */
+    public static final String EUROSAT_IMAGE_DIR = "EuroSAT_RGB";
+
+    /** System property overriding the EuroSAT land-use classifier folder. */
+    public static final String EUROSAT_MODEL_DIR_PROPERTY = "landwatch.eurosat.model.dir";
+    public static final String DEFAULT_EUROSAT_MODEL_DIR = "models/eurosat_resnet";
+
     private AppPaths() {
     }
 
@@ -52,12 +65,60 @@ public final class AppPaths {
         return resultsDir().resolve("eurosat").resolve("test_metrics.txt");
     }
 
+    /** Per-image predictions recorded by the EuroSAT test evaluation ({@code EvaluateEuroSatClassifier}). */
+    public static Path euroSatTestPredictions() {
+        return resultsDir().resolve("eurosat").resolve("test_predictions.csv");
+    }
+
+    /** EuroSAT root folder (contains {@code EuroSAT_RGB/} when the images are installed, and {@code splits/}). */
+    public static Path euroSatDatasetDir() {
+        return fromProperty(EUROSAT_DIR_PROPERTY, DEFAULT_EUROSAT_DIR);
+    }
+
+    /** {@code <EuroSAT root>/EuroSAT_RGB}; the images are not in git, so it may be missing. */
+    public static Path euroSatImagesDir() {
+        return euroSatDatasetDir().resolve(EUROSAT_IMAGE_DIR);
+    }
+
+    /**
+     * Folder with the split CSVs: {@code <EuroSAT root>/splits} if it has {@code test.csv}, otherwise the
+     * copy committed with the project ({@code datasets/EuroSAT/splits}), so a root that only holds the
+     * unpacked images still works.
+     */
+    public static Path euroSatSplitDir() {
+        Path configured = euroSatDatasetDir().resolve("splits");
+        return Files.isRegularFile(configured.resolve("test.csv"))
+                ? configured : Path.of(DEFAULT_EUROSAT_DIR).resolve("splits");
+    }
+
+    /** Folder of the trained EuroSAT classifier ({@code model.properties} + {@code *.params}). */
+    public static Path euroSatModelDir() {
+        return fromProperty(EUROSAT_MODEL_DIR_PROPERTY, DEFAULT_EUROSAT_MODEL_DIR);
+    }
+
     /**
      * Absolute, normalised form of {@code path} for display, with the user's home directory shown as
      * {@code ~} (as shells do). Keeps the account name off the screen in live demos and screenshots.
      */
     public static String forDisplay(Path path) {
         return abbreviateHome(path.toAbsolutePath().normalize(), System.getProperty("user.home"));
+    }
+
+    /**
+     * Short form of {@code path} for display: relative to the working directory when it lies inside it
+     * (e.g. {@code datasets/EuroSAT}), otherwise {@link #forDisplay} (home directory shown as {@code ~}).
+     */
+    public static String shortForDisplay(Path path) {
+        return shortForDisplay(path, Path.of(""), System.getProperty("user.home"));
+    }
+
+    static String shortForDisplay(Path path, Path workingDir, String home) {
+        Path abs = path.toAbsolutePath().normalize();
+        Path cwd = workingDir.toAbsolutePath().normalize();
+        if (abs.startsWith(cwd) && !abs.equals(cwd)) {
+            return cwd.relativize(abs).toString().replace('\\', '/');
+        }
+        return abbreviateHome(abs, home);
     }
 
     static String abbreviateHome(Path absolute, String home) {
