@@ -311,7 +311,7 @@ public final class TrainEuroSatClassifier {
         }
     }
 
-    private static List<EuroSatSample> subset(List<EuroSatSample> all, int limit, long seed) {
+    static List<EuroSatSample> subset(List<EuroSatSample> all, int limit, long seed) {
         if (limit <= 0 || limit >= all.size()) {
             return all;
         }

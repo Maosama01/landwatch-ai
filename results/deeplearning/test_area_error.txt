@@ -1,0 +1,23 @@
+LandWatch AI - area estimation error on LEVIR-CD
+Generated: 2026-11-21 by com.landwatch.evaluation.AreaEstimationError
+Ground sample distance 0.50 m/pixel, so 1 pixel = 0.2500 m^2. Computed from per-image counts already recorded; no model was run again.
+Relative errors use images with at least 1000 true change pixels (250 m^2); below that a few pixels give huge percentages.
+
+== Classical baseline  (results/benchmarks/baseline_test_per_image.csv)
+Images: 128
+Total changed area: true 1,709,351 m^2 (170.94 ha), predicted 6,699,330 m^2 (669.93 ha): +291.92 %
+Per-image absolute area error: mean 39,419 m^2, median 34,975 m^2
+Per-image relative area error (108 images): median 317.4 % (quartiles 118.1-756.7 %); within 10 %: 6 % of images, within 25 %: 7 %
+Images without change: 10, mean predicted (false) area on them 50,914 m^2
+Correlation of true and predicted area across images: r = 0.0177
+
+== FC-Siam-diff  (results/deeplearning/test_per_image.csv)
+Images: 128
+Total changed area: true 1,709,351 m^2 (170.94 ha), predicted 1,700,331 m^2 (170.03 ha): -0.53 %
+Per-image absolute area error: mean 1,132 m^2, median 422 m^2
+Per-image relative area error (108 images): median 6.5 % (quartiles 3.0-11.8 %); within 10 %: 67 % of images, within 25 %: 93 %
+Images without change: 10, mean predicted (false) area on them 172 m^2
+Correlation of true and predicted area across images: r = 0.9883
+
+Caveat: equal areas do not mean the same places. False alarms and misses can cancel in the total,
+so read this together with IoU and F1, which measure where the change is.

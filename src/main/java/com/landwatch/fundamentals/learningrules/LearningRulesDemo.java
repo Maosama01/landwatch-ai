@@ -94,6 +94,18 @@ public final class LearningRulesDemo {
         System.out.println("    final w = " + w + "   (e1 = " + principal + ")");
         System.out.printf("    |w| = %.4f (self-normalised to ~1), |cos(w, e1)| = %.5f, angle error = %.2f deg%n",
                 oja.weightNorm(), cos, Math.toDegrees(Math.acos(Math.min(1.0, cos))));
+
+        // Oja's rule is online PCA: compare with the SVD of the same data matrix (500 x 2)
+        com.landwatch.fundamentals.math.SingularValueDecomposition svd =
+                new com.landwatch.fundamentals.math.SingularValueDecomposition(com.landwatch.fundamentals.math.Matrix.fromRows(data));
+        Vector v1 = svd.rightSingularVector(0);
+        double[] s = svd.getSingularValues();
+        System.out.println("    SVD check (one-sided Jacobi, written from scratch): data matrix X (500 x 2) = U S V^T");
+        System.out.printf("    singular values %.3f, %.3f -> mean squared projections s^2/n = %.3f, %.3f (std 2.0 and 0.5 give 4 and 0.25)%n",
+                s[0], s[1], s[0] * s[0] / data.length, s[1] * s[1] / data.length);
+        System.out.printf("    top right singular vector v1 = %s, |cos(v1, e1)| = %.5f, |cos(w_Oja, v1)| = %.5f%n",
+                v1, Math.abs(LearningRuleUtils.cosineSimilarity(v1, principal)),
+                Math.abs(LearningRuleUtils.cosineSimilarity(w, v1)));
     }
 
     // ------------------------------------------------------------------
