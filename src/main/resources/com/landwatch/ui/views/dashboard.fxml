@@ -70,6 +70,12 @@
                     <StackPane minWidth="16.0" prefWidth="16.0"><SVGPath content="M8 2.2L14.2 13.3H1.8Z M8 6.5v3 M8 11.4v0.1" styleClass="nav-icon" /></StackPane>
                 </graphic>
             </Button>
+            <!-- Separate task: EuroSAT scene classification of 64x64 Sentinel-2 tiles (never run on LEVIR-CD pairs) -->
+            <Button fx:id="navLandUseButton" maxWidth="Infinity" onAction="#handleNavLandUse" styleClass="nav-button" text="Land use (EuroSAT)">
+                <graphic>
+                    <StackPane minWidth="16.0" prefWidth="16.0"><SVGPath content="M2 2h5v5H2z M9 2h5v5H9z M2 9h5v5H2z M9 9h5v5H9z" styleClass="nav-icon" /></StackPane>
+                </graphic>
+            </Button>
 
             <Label styleClass="nav-group-label" text="Results" />
             <Button fx:id="navBenchmarksButton" maxWidth="Infinity" onAction="#handleNavBenchmarks" styleClass="nav-button" text="Benchmarks">

@@ -24,6 +24,8 @@
         <landwatch.model.dir>models/siamese_unet_levir</landwatch.model.dir>
         <landwatch.deeplearning.device>auto</landwatch.deeplearning.device>
         <landwatch.dataset.dir>datasets/LEVIR-CD</landwatch.dataset.dir>
+        <!-- EuroSAT folder holding EuroSAT_RGB/ (images, not in git) and splits/ (in git) -->
+        <landwatch.eurosat.root>datasets/EuroSAT</landwatch.eurosat.root>
     </properties>
 
     <dependencies>
@@ -127,6 +129,7 @@
                         <option>-Dlandwatch.model.dir=${landwatch.model.dir}</option>
                         <option>-Dlandwatch.deeplearning.device=${landwatch.deeplearning.device}</option>
                         <option>-Dlandwatch.dataset.dir=${landwatch.dataset.dir}</option>
+                        <option>-Dlandwatch.eurosat.root=${landwatch.eurosat.root}</option>
                     </options>
                 </configuration>
             </plugin>

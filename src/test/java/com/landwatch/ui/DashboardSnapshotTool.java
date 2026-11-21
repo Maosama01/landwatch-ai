@@ -6,6 +6,7 @@ import com.landwatch.ui.data.AppPaths;
 import com.landwatch.ui.engine.ChangeDetectionEngine;
 import com.landwatch.ui.engine.EngineResult;
 import com.landwatch.ui.engine.SiameseUNetEngine;
+import com.landwatch.ui.pages.EuroSatPage;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXMLLoader;
@@ -17,6 +18,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
@@ -55,12 +57,17 @@ import java.util.concurrent.TimeUnit;
  * <pre>
  * java -Dlandwatch.model.dir=models/siamese_unet_levir -Dlandwatch.deeplearning.device=cpu \
  *      -Dlandwatch.dataset.dir=datasets/LEVIR-CD [-Dlandwatch.snapshot.pair=test_7.png] \
+ *      [-Dlandwatch.eurosat.root=datasets/EuroSAT] [-Dlandwatch.snapshot.only=eurosat] \
  *      -cp ... com.landwatch.ui.DashboardSnapshotTool [outputDir]
  * </pre>
+ *
+ * <p>The Land use (EuroSAT) page is captured as well (17-23); {@code -Dlandwatch.snapshot.only=eurosat}
+ * captures only that page and skips the LEVIR-CD flow.</p>
  */
 public final class DashboardSnapshotTool {
 
     private static final String PAIR_PROPERTY = "landwatch.snapshot.pair";
+    private static final String ONLY_PROPERTY = "landwatch.snapshot.only";
 
     private DashboardSnapshotTool() {
     }
@@ -119,6 +126,11 @@ public final class DashboardSnapshotTool {
         SiameseUNetEngine deep = controller.getDeepEngine();
 
         try {
+            if ("eurosat".equals(System.getProperty(ONLY_PROPERTY))) {
+                waitFor(() -> !deep.isLoading(), 180_000, "deep model load");
+                captureEuroSat(scene, controller, outDir, files);
+                return files;
+            }
             files.add(save(scene, outDir, "00_startup_model_loading.png"));
             waitFor(() -> !deep.isLoading(), 180_000, "deep model load");
             System.out.println("[deep model] state=" + deep.getState() + " note=" + deep.getStatusNote());
@@ -219,6 +231,8 @@ public final class DashboardSnapshotTool {
             files.add(save(scene, outDir, "13_page_about_runtime.png"));
             reportTruncation(scene, "13");
 
+            captureEuroSat(scene, controller, outDir, files);
+
             // 5. Minimum window size (1100x760): the same root moved into a smaller scene.
             Scene small = onFx(() -> {
                 Parent root = scene.getRoot();
@@ -283,6 +297,103 @@ public final class DashboardSnapshotTool {
         analyze(scene, controller, null);
         System.out.println("[interaction] after re-analysis: per-image F1 = "
                 + String.format(Locale.ROOT, "%.4f", onFx(controller::getLastGroundTruthMetrics).f1()));
+    }
+
+    /**
+     * Land use (EuroSAT) page: a random test image, the recorded-errors gallery with a misclassified tile
+     * opened, the recorded test metrics, a non-64x64 input with its resize note, and the page when the
+     * EuroSAT images are not installed.
+     */
+    private static void captureEuroSat(Scene scene, DashboardController controller, File outDir, List<String> files)
+            throws Exception {
+        EuroSatPage page = controller.getEuroSatPage();
+        fire(scene, "#navLandUseButton");
+        waitFor(() -> !page.isBusy(), 180_000, "EuroSAT classifier load and gallery");
+        System.out.println("[eurosat] engine state=" + page.getEngine().getState() + " note="
+                + page.getEngine().getStatusNote());
+        boolean dataset = onFx(() -> !scene.lookup("#euroSatRandomButton").isDisabled());
+        System.out.println("[eurosat] dataset images available: " + dataset);
+        if (dataset) {
+            fire(scene, "#euroSatRandomButton");
+            waitFor(() -> !page.isBusy(), 60_000, "EuroSAT random test image");
+        }
+        scrollPage(scene, "#euroSatPage", 0.0);
+        files.add(save(scene, outDir, "17_page_land_use_eurosat.png"));
+        reportTruncation(scene, "17");
+
+        if (dataset) {
+            onFx(() -> {
+                ((ToggleButton) scene.lookup("#euroSatGalleryErrorsToggle")).fire();
+                return null;
+            });
+            waitFor(() -> !page.isBusy(), 60_000, "EuroSAT recorded-errors gallery");
+            boolean opened = onFx(() -> {
+                Node wrong = scene.getRoot().lookup(".gallery-tile-wrong");
+                if (wrong == null) {
+                    return false;
+                }
+                javafx.geometry.Point2D at = wrong.localToScene(10, 10);
+                wrong.fireEvent(new MouseEvent(MouseEvent.MOUSE_CLICKED, at.getX(), at.getY(), 0, 0, MouseButton.PRIMARY,
+                        1, false, false, false, false, true, false, false, true, false, false, null));
+                return true;
+            });
+            System.out.println("[eurosat] opened a misclassified gallery tile: " + opened);
+            scrollPage(scene, "#euroSatPage", 0.0);
+            files.add(save(scene, outDir, "18_page_land_use_eurosat_wrong_prediction.png"));
+            reportTruncation(scene, "18");
+            scrollPage(scene, "#euroSatPage", 0.45);
+            files.add(save(scene, outDir, "19_page_land_use_eurosat_recorded_errors_gallery.png"));
+            reportTruncation(scene, "19");
+        }
+        scrollPage(scene, "#euroSatPage", 1.0);
+        files.add(save(scene, outDir, "20_page_land_use_eurosat_test_metrics.png"));
+        reportTruncation(scene, "20");
+
+        // A non-64x64 input (the bundled synthetic demo image, not satellite imagery) shows the resize note.
+        Path demo = Path.of("src", "main", "resources", "com", "landwatch", "sample_data", "siteA_pre.bmp");
+        if (Files.isRegularFile(demo)) {
+            onFx(() -> {
+                page.classifyFile(demo);
+                return null;
+            });
+            waitFor(() -> !page.isBusy(), 60_000, "EuroSAT resized input");
+            scrollPage(scene, "#euroSatPage", 0.0);
+            files.add(save(scene, outDir, "21_page_land_use_eurosat_resized_input_note.png"));
+            reportTruncation(scene, "21");
+        }
+
+        // A LEVIR-CD pair image opened on this page is shown but deliberately not classified.
+        Path levir = AppPaths.levirDatasetDir().resolve("test").resolve("A")
+                .resolve(System.getProperty(PAIR_PROPERTY, "test_7.png"));
+        if (Files.isRegularFile(levir)) {
+            onFx(() -> {
+                page.classifyFile(levir);
+                return null;
+            });
+            waitFor(() -> !page.isBusy(), 60_000, "EuroSAT page with a LEVIR-CD image");
+            scrollPage(scene, "#euroSatPage", 0.0);
+            files.add(save(scene, outDir, "22_page_land_use_eurosat_levir_not_classified.png"));
+            reportTruncation(scene, "22");
+        }
+
+        // Without the EuroSAT images the page still opens and says where they go (the default folder when
+        // it has no images, as in a fresh clone; otherwise a folder that does not exist).
+        String previous = System.getProperty(AppPaths.EUROSAT_DIR_PROPERTY);
+        boolean defaultHasImages = Files.isDirectory(Path.of(AppPaths.DEFAULT_EUROSAT_DIR, AppPaths.EUROSAT_IMAGE_DIR));
+        System.setProperty(AppPaths.EUROSAT_DIR_PROPERTY,
+                defaultHasImages ? "datasets/EuroSAT-not-installed" : AppPaths.DEFAULT_EUROSAT_DIR);
+        try {
+            fire(scene, "#navLandUseButton");
+            scrollPage(scene, "#euroSatPage", 0.0);
+            files.add(save(scene, outDir, "23_page_land_use_eurosat_without_dataset.png"));
+            reportTruncation(scene, "23");
+        } finally {
+            if (previous == null) {
+                System.clearProperty(AppPaths.EUROSAT_DIR_PROPERTY);
+            } else {
+                System.setProperty(AppPaths.EUROSAT_DIR_PROPERTY, previous);
+            }
+        }
     }
 
     private static void styled(Scene scene) {

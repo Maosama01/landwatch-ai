@@ -20,6 +20,7 @@ import com.landwatch.ui.engine.EngineRunner;
 import com.landwatch.ui.engine.SiameseUNetEngine;
 import com.landwatch.ui.pages.AboutPage;
 import com.landwatch.ui.pages.BenchmarksPage;
+import com.landwatch.ui.pages.EuroSatPage;
 import com.landwatch.ui.pages.FailureAnalysisPage;
 import com.landwatch.ui.pages.FundamentalsPage;
 import javafx.application.Platform;
@@ -94,7 +95,9 @@ import java.util.stream.Collectors;
  * label is kept as well: the analysis then also renders the label and a TP/FP/FN error map and computes
  * per-image metrics with {@link BinaryChangeMetrics}. The deep model is loaded asynchronously at start-up
  * and becomes selectable once ready. The sidebar switches between the analysis view and the
- * Benchmarks, NN fundamentals, Failure analysis and About pages.</p>
+ * Land use (EuroSAT), Benchmarks, NN fundamentals, Failure analysis and About pages. The EuroSAT
+ * land-use classifier is a separate scene classifier with its own page and background thread; it is
+ * not a {@link ChangeDetectionEngine} and is never run on the change-detection inputs.</p>
  */
 public class DashboardController implements Initializable {
 
@@ -109,6 +112,7 @@ public class DashboardController implements Initializable {
     @FXML private Button navBenchmarksButton;
     @FXML private Button navFundamentalsButton;
     @FXML private Button navFailureButton;
+    @FXML private Button navLandUseButton;
     @FXML private Button navAboutButton;
 
     // Header & Status
@@ -238,6 +242,7 @@ public class DashboardController implements Initializable {
     private BenchmarksPage benchmarksPage;
     private FundamentalsPage fundamentalsPage;
     private FailureAnalysisPage failureAnalysisPage;
+    private EuroSatPage euroSatPage;
     private AboutPage aboutPage;
     private Button activeNavButton;
 
@@ -536,10 +541,13 @@ public class DashboardController implements Initializable {
         return deepEngine;
     }
 
-    /** Releases native resources (the deep model). Called from MainApp#stop. */
+    /** Releases native resources (the deep model and the EuroSAT classifier). Called from MainApp#stop. */
     public void shutdown() {
         if (deepEngine != null) {
             deepEngine.close();
+        }
+        if (euroSatPage != null) {
+            euroSatPage.shutdown();
         }
     }
 
@@ -551,9 +559,10 @@ public class DashboardController implements Initializable {
         benchmarksPage = new BenchmarksPage(deepEngine);
         fundamentalsPage = new FundamentalsPage(this::logMessage);
         failureAnalysisPage = new FailureAnalysisPage(this::openLevirPairFromPage);
+        euroSatPage = new EuroSatPage(this::logMessage);
         aboutPage = new AboutPage(deepEngine);
         for (Node page : List.of(benchmarksPage.getRoot(), fundamentalsPage.getRoot(),
-                failureAnalysisPage.getRoot(), aboutPage.getRoot())) {
+                failureAnalysisPage.getRoot(), euroSatPage.getRoot(), aboutPage.getRoot())) {
             page.setVisible(false);
             pageStack.getChildren().add(page);
         }
@@ -564,6 +573,7 @@ public class DashboardController implements Initializable {
     @FXML public void handleNavBenchmarks() { benchmarksPage.refresh(); showPage(benchmarksPage.getRoot(), navBenchmarksButton); }
     @FXML public void handleNavFundamentals() { showPage(fundamentalsPage.getRoot(), navFundamentalsButton); }
     @FXML public void handleNavFailure() { failureAnalysisPage.refresh(); showPage(failureAnalysisPage.getRoot(), navFailureButton); }
+    @FXML public void handleNavLandUse() { euroSatPage.onShow(); showPage(euroSatPage.getRoot(), navLandUseButton); }
     @FXML public void handleNavAbout() { aboutPage.refresh(); showPage(aboutPage.getRoot(), navAboutButton); }
 
     private void showPage(Node page, Button navButton) {
@@ -1791,6 +1801,10 @@ public class DashboardController implements Initializable {
 
     public FundamentalsPage getFundamentalsPage() {
         return fundamentalsPage;
+    }
+
+    public EuroSatPage getEuroSatPage() {
+        return euroSatPage;
     }
 
     // ------------------------------------------------------------------
