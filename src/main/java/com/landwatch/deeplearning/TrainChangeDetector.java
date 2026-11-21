@@ -43,7 +43,15 @@ import java.util.concurrent.Executors;
  *
  * <p>Options (all optional): {@code --data <processed_256 dir> --out models/siamese_unet_levir
  * --results results/deeplearning --epochs 14 --batch 8 --lr 1e-3 --device auto --workers 4
- * --max-minutes 72 --train-limit 0 --val-limit 0 --seed 42 --pos-weight auto --dice-weight 1}</p>
+ * --max-minutes 72 --train-limit 0 --val-limit 0 --seed 42 --pos-weight auto --dice-weight 1
+ * --augment true --arch fc-siam-diff --tf-layers 2 --tf-heads 4 --tf-mlp 256}</p>
+ *
+ * <p>{@code --arch fc-siam-diff-transformer} trains FC-Siam-diff with a {@link BitemporalTransformer}
+ * at the bottleneck (layers, heads and MLP size from the {@code --tf-*} options).</p>
+ *
+ * <p>For ablation runs, {@code --dice-weight 0} trains with weighted BCE alone and
+ * {@code --augment false} switches off the random D4 augmentation. Ablations are compared on the
+ * VAL split only.</p>
  */
 public final class TrainChangeDetector {
 
@@ -71,12 +79,22 @@ public final class TrainChangeDetector {
         int valLimit = Integer.parseInt(opt.getOrDefault("val-limit", "0"));
         int seed = Integer.parseInt(opt.getOrDefault("seed", "42"));
         float diceWeight = Float.parseFloat(opt.getOrDefault("dice-weight", "1"));
+        boolean augment = parseBoolean(opt.getOrDefault("augment", "true"), "augment");
+        String arch = opt.getOrDefault("arch", ModelConfig.TYPE_FC_SIAM_DIFF);
+        if (!ModelConfig.TYPE_FC_SIAM_DIFF.equals(arch) && !ModelConfig.TYPE_TRANSFORMER.equals(arch)) {
+            throw new IllegalArgumentException("--arch must be " + ModelConfig.TYPE_FC_SIAM_DIFF + " or "
+                    + ModelConfig.TYPE_TRANSFORMER + ", got " + arch);
+        }
+        int tfLayers = Integer.parseInt(opt.getOrDefault("tf-layers", String.valueOf(BitemporalTransformer.DEFAULT_LAYERS)));
+        int tfHeads = Integer.parseInt(opt.getOrDefault("tf-heads", String.valueOf(BitemporalTransformer.DEFAULT_HEADS)));
+        int tfMlp = Integer.parseInt(opt.getOrDefault("tf-mlp", String.valueOf(BitemporalTransformer.DEFAULT_MLP_HIDDEN)));
         int[] widths = FcSiamDiff.DEFAULT_WIDTHS;
         int patchSize = 256;
         Device device = DjlRuntime.resolveDevice(opt.getOrDefault("device", "auto"));
 
         Engine.getInstance().setRandomSeed(seed);
-        System.out.println("=== LandWatch AI - FC-Siam-diff training (" + LocalDateTime.now() + ") ===");
+        String archName = ModelConfig.TYPE_TRANSFORMER.equals(arch) ? "FC-Siam-diff + Transformer" : "FC-Siam-diff";
+        System.out.println("=== LandWatch AI - " + archName + " training (" + LocalDateTime.now() + ") ===");
         System.out.println(DjlRuntime.describe() + ", device " + device);
         System.out.println("Dataset: " + data);
 
@@ -103,7 +121,7 @@ public final class TrainChangeDetector {
         System.out.printf(Locale.ROOT, "Normalisation (train only, A+B pooled): %s  [%.1f s]%n", norm, (System.nanoTime() - tNorm) / 1e9);
 
         LevirCdDataset trainSet = LevirCdDataset.builder().setPatches(train).optNormalization(norm)
-                .optAugment(true).setSampling(batchSize, true, true).optPrefetchNumber(workers * 2).build();
+                .optAugment(augment).setSampling(batchSize, true, true).optPrefetchNumber(workers * 2).build();
         LevirCdDataset valSet = LevirCdDataset.builder().setPatches(val).optNormalization(norm)
                 .optAugment(false).setSampling(batchSize, false, false).optPrefetchNumber(workers * 2).build();
 
@@ -122,9 +140,20 @@ public final class TrainChangeDetector {
         int epochsCompleted = 0;
         String stopReason = "planned epochs completed";
         ModelConfig config = baseConfig(widths, patchSize, norm, epochs, batchSize, lr, posWeight, diceWeight,
-                device, train.size(), val.size(), testSize, data, seed);
+                augment, device, train.size(), val.size(), testSize, data, seed);
+        if (ModelConfig.TYPE_TRANSFORMER.equals(arch)) {
+            config.set(ModelConfig.MODEL_TYPE, arch);
+            config.set(ModelConfig.TF_LAYERS, tfLayers);
+            config.set(ModelConfig.TF_HEADS, tfHeads);
+            config.set(ModelConfig.TF_MLP, tfMlp);
+            config.set(ModelConfig.PARAMS_NAME, TrainingSupport.TRANSFORMER_MODEL_NAME);
+            config.set(ModelConfig.ARCHITECTURE, "FC-Siam-diff (Daudt, Le Saux & Boulch, ICIP 2018) with a Transformer"
+                    + " encoder at the bottleneck (" + tfLayers + " pre-norm layers, " + tfHeads + " heads, MLP " + tfMlp
+                    + ", fixed 2-D sinusoidal position code) over the tokens of both dates, after BIT (Chen, Qi & Shi, TGRS 2022);"
+                    + " decoder skips = |enc(A) - enc(B)|");
+        }
 
-        try (Model model = TrainingSupport.newModel(widths, device);
+        try (Model model = TrainingSupport.newModel(config, device);
              Trainer trainer = TrainingSupport.newTrainer(model, loss, schedule, batchSize, patchSize);
              NDManager cpu = NDManager.newBaseManager(Device.cpu());
              PrintWriter log = new PrintWriter(Files.newBufferedWriter(logCsv, StandardCharsets.UTF_8))) {
@@ -229,14 +258,14 @@ public final class TrainChangeDetector {
     static void saveCheckpoint(Model model, Path outDir, int epoch) throws IOException {
         try (java.util.stream.Stream<Path> files = Files.list(outDir)) {
             for (Path f : (Iterable<Path>) files::iterator) {
-                if (f.getFileName().toString().matches(java.util.regex.Pattern.quote(TrainingSupport.MODEL_NAME)
+                if (f.getFileName().toString().matches(java.util.regex.Pattern.quote(model.getName())
                         + "-\\d{4}\\.params")) {
                     Files.delete(f);
                 }
             }
         }
         model.setProperty("Epoch", String.valueOf(epoch));
-        model.save(outDir, TrainingSupport.MODEL_NAME);
+        model.save(outDir, model.getName());
     }
 
     /** Runs the model over a (non-augmented) split and returns the probability histogram. */
@@ -257,7 +286,7 @@ public final class TrainChangeDetector {
     }
 
     private static ModelConfig baseConfig(int[] widths, int patchSize, Normalization norm, int epochs, int batchSize,
-                                          float lr, float posWeight, float diceWeight, Device device,
+                                          float lr, float posWeight, float diceWeight, boolean augment, Device device,
                                           int trainSize, int valSize, int testSize, Path data, int seed) {
         ModelConfig c = new ModelConfig();
         c.set(ModelConfig.ARCHITECTURE, "FC-Siam-diff (Daudt, Le Saux & Boulch, ICIP 2018); shared encoder, "
@@ -279,8 +308,10 @@ public final class TrainChangeDetector {
         c.set("training.loss", "weighted BCE-with-logits + " + diceWeight + " x soft Dice (batch-level)");
         c.set("training.loss.pos_weight", posWeight);
         c.set("training.loss.dice_weight", diceWeight);
-        c.set("training.augmentation", "TRAIN only: random D4 transform (rotation by 0/90/180/270 deg, optional horizontal flip;"
-                + " covers vertical flips), identical for A, B and label");
+        c.set("training.augmentation", augment
+                ? "TRAIN only: random D4 transform (rotation by 0/90/180/270 deg, optional horizontal flip;"
+                        + " covers vertical flips), identical for A, B and label"
+                : "none (switched off with --augment false)");
         c.set("training.device", device.toString());
         c.set("training.seed", seed);
         c.set("djl_version", DjlRuntime.djlVersion());
@@ -328,6 +359,17 @@ public final class TrainChangeDetector {
         List<LevirCdPatch> copy = new ArrayList<>(all);
         Collections.shuffle(copy, new Random(seed));
         return List.copyOf(copy.subList(0, limit));
+    }
+
+    /** Parses "true" or "false" (any case); anything else is an error rather than a silent false. */
+    static boolean parseBoolean(String value, String option) {
+        if ("true".equalsIgnoreCase(value)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(value)) {
+            return false;
+        }
+        throw new IllegalArgumentException("--" + option + " must be true or false, got: " + value);
     }
 
     static Map<String, String> parseArgs(String[] args) {

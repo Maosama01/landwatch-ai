@@ -29,6 +29,13 @@ public final class ModelConfig {
     public static final String NORM_STD = "normalization.std";
     public static final String THRESHOLD = "decision_threshold";
     public static final String PARAMS_NAME = "params_name";
+    /** Which network: {@link #TYPE_FC_SIAM_DIFF} (the default when the key is absent) or {@link #TYPE_TRANSFORMER}. */
+    public static final String MODEL_TYPE = "model.type";
+    public static final String TYPE_FC_SIAM_DIFF = "fc-siam-diff";
+    public static final String TYPE_TRANSFORMER = "fc-siam-diff-transformer";
+    public static final String TF_LAYERS = "transformer.layers";
+    public static final String TF_HEADS = "transformer.heads";
+    public static final String TF_MLP = "transformer.mlp_hidden";
 
     private final Map<String, String> values = new TreeMap<>();
 
@@ -51,6 +58,20 @@ public final class ModelConfig {
 
     public Map<String, String> asMap() {
         return new TreeMap<>(values);
+    }
+
+    /** The network type; models trained before the key existed are plain FC-Siam-diff. */
+    public String getModelType() {
+        String type = get(MODEL_TYPE, TYPE_FC_SIAM_DIFF);
+        if (!TYPE_FC_SIAM_DIFF.equals(type) && !TYPE_TRANSFORMER.equals(type)) {
+            throw new IllegalStateException("Unknown " + MODEL_TYPE + " '" + type + "' in " + FILE_NAME);
+        }
+        return type;
+    }
+
+    /** Short human-readable name of the network type. */
+    public String getModelDisplayName() {
+        return TYPE_TRANSFORMER.equals(getModelType()) ? "FC-Siam-diff + Transformer" : "FC-Siam-diff";
     }
 
     public int[] getWidths() {
@@ -98,7 +119,7 @@ public final class ModelConfig {
         };
         p.putAll(values);
         try (Writer w = Files.newBufferedWriter(dir.resolve(FILE_NAME), StandardCharsets.UTF_8)) {
-            p.store(w, "LandWatch AI - FC-Siam-diff change detector (trained with DJL)");
+            p.store(w, "LandWatch AI - " + getModelDisplayName() + " change detector (trained with DJL)");
         }
     }
 

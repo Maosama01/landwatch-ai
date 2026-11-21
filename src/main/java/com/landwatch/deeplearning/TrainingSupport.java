@@ -33,6 +33,9 @@ public final class TrainingSupport {
     /** Name used for the DJL model and its parameter file ({@code fc_siam_diff-0000.params}). */
     public static final String MODEL_NAME = "fc_siam_diff";
 
+    /** Name of the FC-Siam-diff + Transformer model and its parameter file. */
+    public static final String TRANSFORMER_MODEL_NAME = "fc_siam_diff_transformer";
+
     private TrainingSupport() {
     }
 
@@ -53,6 +56,24 @@ public final class TrainingSupport {
     public static Model newModel(int[] widths, Device device) {
         Model model = Model.newInstance(MODEL_NAME, device, "PyTorch");
         model.setBlock(new FcSiamDiff(widths));
+        return model;
+    }
+
+    /**
+     * Creates the (uninitialised) model described by a config: plain FC-Siam-diff, or FC-Siam-diff
+     * with a {@link BitemporalTransformer} when {@code model.type = fc-siam-diff-transformer}.
+     */
+    public static Model newModel(ModelConfig config, Device device) {
+        int[] widths = config.getWidths();
+        if (!ModelConfig.TYPE_TRANSFORMER.equals(config.getModelType())) {
+            return newModel(widths, device);
+        }
+        BitemporalTransformer transformer = new BitemporalTransformer(widths[3],
+                Integer.parseInt(config.get(ModelConfig.TF_LAYERS)),
+                Integer.parseInt(config.get(ModelConfig.TF_HEADS)),
+                Integer.parseInt(config.get(ModelConfig.TF_MLP)));
+        Model model = Model.newInstance(TRANSFORMER_MODEL_NAME, device, "PyTorch");
+        model.setBlock(new FcSiamDiff(widths, transformer));
         return model;
     }
 

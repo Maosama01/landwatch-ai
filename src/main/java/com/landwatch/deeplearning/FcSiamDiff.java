@@ -67,6 +67,12 @@ import java.util.Arrays;
  *   <li>With the default widths the model has 1,348,785 trainable parameters (about 1.35 million,
  *       matching the paper); {@code FcSiamDiffTest} asserts the exact count.</li>
  * </ul>
+ *
+ * <h2>Optional Transformer at the bottleneck</h2>
+ * <p>Built with a {@link BitemporalTransformer}, the stacked bottleneck features of A and B pass
+ * through self-attention before the decoder takes their absolute difference. Everything else is
+ * unchanged, so comparing the two variants isolates the effect of the Transformer. The plain model
+ * has exactly the same blocks and parameter files as before.</p>
  */
 public final class FcSiamDiff extends AbstractBlock {
 
@@ -93,6 +99,7 @@ public final class FcSiamDiff extends AbstractBlock {
     private final Block dec2;
     private final Block dec1;
     private final Block head;
+    private final BitemporalTransformer transformer;
 
     /** Creates the model with the paper's widths 16-32-64-128. */
     public FcSiamDiff() {
@@ -105,6 +112,17 @@ public final class FcSiamDiff extends AbstractBlock {
      * @param widths four positive channel counts for encoder stages 1-4
      */
     public FcSiamDiff(int[] widths) {
+        this(widths, null);
+    }
+
+    /**
+     * Creates the model with an optional Transformer applied to the stacked bottleneck features.
+     *
+     * @param widths      four positive channel counts for encoder stages 1-4
+     * @param transformer a Transformer whose channel count equals {@code widths[3]}, or {@code null}
+     *                    for the plain FC-Siam-diff
+     */
+    public FcSiamDiff(int[] widths, BitemporalTransformer transformer) {
         super(VERSION);
         if (widths == null || widths.length != 4) {
             throw new IllegalArgumentException("Exactly four widths are required");
@@ -138,6 +156,17 @@ public final class FcSiamDiff extends AbstractBlock {
                 .optPadding(new Shape(1, 1))
                 .setFilters(1)
                 .build());
+        if (transformer != null && transformer.getChannels() != w4) {
+            throw new IllegalArgumentException("Transformer channels " + transformer.getChannels()
+                    + " must equal the last encoder width " + w4);
+        }
+        // added last, so the plain model's blocks and parameter order are exactly as before
+        this.transformer = transformer == null ? null : addChildBlock("transformer", transformer);
+    }
+
+    /** The bottleneck Transformer, or {@code null} for the plain FC-Siam-diff. */
+    public BitemporalTransformer getTransformer() {
+        return transformer;
     }
 
     /** The four encoder widths this model was built with (a copy). */
@@ -209,6 +238,9 @@ public final class FcSiamDiff extends AbstractBlock {
         NDArray s3 = enc3.forward(ps, new NDList(maxPool(s2)), training, params).singletonOrThrow();
         NDArray s4 = enc4.forward(ps, new NDList(maxPool(s3)), training, params).singletonOrThrow();
         NDArray bottleneck = maxPool(s4);
+        if (transformer != null) {
+            bottleneck = transformer.forward(ps, new NDList(bottleneck), training, params).singletonOrThrow();
+        }
 
         // Decoder fed with |enc(A) - enc(B)| at every level
         NDArray d = absDiffOfHalves(bottleneck);
@@ -274,10 +306,15 @@ public final class FcSiamDiff extends AbstractBlock {
         up1.initialize(manager, dataType, new Shape(n, w1, h, w));
         dec1.initialize(manager, dataType, new Shape(n, w1 + w1, h, w));
         head.initialize(manager, dataType, new Shape(n, w1, h, w));
+        if (transformer != null) {
+            transformer.initialize(manager, dataType, new Shape(2 * n, w4, h / 16, w / 16));
+        }
     }
 
     @Override
     public String toString() {
-        return "FC-Siam-diff(widths=" + Arrays.toString(widths) + ")";
+        return transformer == null
+                ? "FC-Siam-diff(widths=" + Arrays.toString(widths) + ")"
+                : "FC-Siam-diff+Transformer(widths=" + Arrays.toString(widths) + ", " + transformer + ")";
     }
 }

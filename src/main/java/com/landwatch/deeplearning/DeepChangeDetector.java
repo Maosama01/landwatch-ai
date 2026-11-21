@@ -82,7 +82,7 @@ public final class DeepChangeDetector implements AutoCloseable {
         }
         ModelConfig config = ModelConfig.load(modelDir);
         Device dev = DjlRuntime.resolveDevice(device);
-        Model model = TrainingSupport.newModel(config.getWidths(), dev);
+        Model model = TrainingSupport.newModel(config, dev);
         try {
             model.load(modelDir, config.get(ModelConfig.PARAMS_NAME, TrainingSupport.MODEL_NAME));
         } catch (MalformedModelException | RuntimeException e) {
@@ -194,7 +194,12 @@ public final class DeepChangeDetector implements AutoCloseable {
     /** Human-readable description: architecture, training data, and where the metrics come from. */
     public String describe() {
         StringBuilder sb = new StringBuilder();
-        sb.append("FC-Siam-diff change detector (fully convolutional Siamese U-Net, Daudt, Le Saux & Boulch, ICIP 2018)\n");
+        if (ModelConfig.TYPE_TRANSFORMER.equals(config.getModelType())) {
+            sb.append("FC-Siam-diff + Transformer change detector (Siamese U-Net with ").append(config.get(ModelConfig.TF_LAYERS, "?"))
+                    .append(" self-attention layers at the bottleneck, after BIT, Chen et al., TGRS 2022)\n");
+        } else {
+            sb.append("FC-Siam-diff change detector (fully convolutional Siamese U-Net, Daudt, Le Saux & Boulch, ICIP 2018)\n");
+        }
         sb.append("  Encoder widths ").append(Arrays.toString(config.getWidths()))
                 .append(", ").append(String.format("%,d", parameterCount)).append(" trainable parameters + BatchNorm statistics\n");
         sb.append("  Trained with DJL ").append(config.get("djl_version", "?"))

@@ -67,9 +67,11 @@ public final class EvaluateChangeDetector {
         long[] latencyNs = new long[patches.size()];
         String deviceName;
         float threshold;
+        String modelName;
         long start = System.nanoTime();
         try (DeepChangeDetector detector = DeepChangeDetector.load(modelDir, opt.getOrDefault("device", "auto"))) {
             threshold = detector.getThreshold();
+            modelName = detector.getConfig().getModelDisplayName();
             deviceName = detector.getDevice().toString();
             System.out.println("Model under evaluation (as recorded before this run):");
             System.out.println(detector.describe());
@@ -103,7 +105,7 @@ public final class EvaluateChangeDetector {
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("LandWatch AI - FC-Siam-diff change detection, evaluation on LEVIR-CD ").append(split.toUpperCase(Locale.ROOT))
+        sb.append("LandWatch AI - ").append(modelName).append(" change detection, evaluation on LEVIR-CD ").append(split.toUpperCase(Locale.ROOT))
                 .append(" split\n");
         sb.append("Generated: ").append(LocalDateTime.now()).append('\n');
         sb.append("Model: ").append(TrainingSupport.displayPath(modelDir)).append('\n');
