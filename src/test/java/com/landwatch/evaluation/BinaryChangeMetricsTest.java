@@ -108,4 +108,29 @@ class BinaryChangeMetricsTest {
         assertEquals(0.0, m.kappa());
         assertFalse(m.toReport().contains("NaN"));
     }
+
+    @Test
+    void areaErrorComparesPredictedWithTrueChangedArea() {
+        // predicted = TP + FP = 110, true = TP + FN = 100 -> +10 %, |FP - FN| = 10
+        BinaryChangeMetrics m = BinaryChangeMetrics.of(90, 20, 10, 880);
+        assertEquals(110, m.predictedChangePixels());
+        assertEquals(100, m.trueChangePixels());
+        assertEquals(10, m.absoluteAreaErrorPixels());
+        assertEquals(0.10, m.relativeAreaError(), 1e-12);
+        assertTrue(m.toReport().contains("Area error       : +10.00 %"));
+        // misses and false alarms cancel: perfect area, imperfect map
+        BinaryChangeMetrics cancel = BinaryChangeMetrics.of(80, 20, 20, 880);
+        assertEquals(0.0, cancel.relativeAreaError(), 0);
+        assertTrue(cancel.iou() < 1);
+    }
+
+    @Test
+    void areaErrorIsUndefinedNotInfiniteWithoutTrueChange() {
+        BinaryChangeMetrics m = BinaryChangeMetrics.of(0, 7, 0, 993);
+        assertTrue(Double.isNaN(m.relativeAreaError()));
+        assertEquals(7, m.absoluteAreaErrorPixels());
+        assertTrue(m.toReport().contains("undefined (no true change); 7 pixels predicted as change"));
+        assertFalse(m.toReport().contains("NaN"));
+        assertFalse(m.toReport().contains("Infinity"));
+    }
 }

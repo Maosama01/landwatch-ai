@@ -1,0 +1,11 @@
+class,images,mse,psnr_db
+AnnualCrop,450,0.003413,24.67
+Forest,450,0.000711,31.48
+HerbaceousVegetation,450,0.003426,24.65
+Highway,375,0.004790,23.20
+Industrial,375,0.015404,18.12
+Pasture,300,0.001847,27.34
+PermanentCrop,375,0.005025,22.99
+Residential,450,0.006416,21.93
+River,375,0.003323,24.79
+SeaLake,450,0.000795,31.00

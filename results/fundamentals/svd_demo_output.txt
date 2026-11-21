@@ -1,0 +1,38 @@
+LandWatch AI - SVD demonstration (one-sided Jacobi, plain Java)
+
+[1] Worked example: A (4 x 3) = U S V^T
+A =
+    3.0000  1.0000  1.0000
+   -1.0000  3.0000  1.0000
+    1.0000  1.0000  3.0000
+    0.0000  2.0000  2.0000
+U (4 x 3) =
+    0.4114  0.7044  0.5785
+    0.4657 -0.6425  0.4512
+    0.5825  0.2106 -0.6706
+    0.5241 -0.2160 -0.1097
+singular values S = [5.2096, 3.3097, 1.7048]
+V^T (3 x 3) =
+    0.2593  0.6601  0.7050
+    0.8962 -0.4365  0.0791
+    0.3599  0.6113 -0.7048
+max |A - U S V^T| = 2.66e-15; rank-1 approximation keeps 66.2 % of sum s_i^2
+
+[2] Image: datasets/EuroSAT/EuroSAT_RGB/Residential/Residential_9.jpg
+Grey-level matrix X: 64 x 64 (BT.601 luminance / 255); SVD in 101 ms, 12 Jacobi sweeps
+max |X - U S V^T| = 7.22e-15
+Largest singular values: 18.738, 1.311, 1.011, 0.938, 0.863, 0.815, 0.722, 0.663, 0.634, 0.576
+
+[3] Rank-k approximations X_k (best possible for each k, Eckart-Young)
+   k   energy kept   relative error   PSNR      numbers stored (of 4096)
+   1       97.40 %         0.1612    26.41 dB      129 (3 %)
+   2       97.88 %         0.1457    27.29 dB      258 (6 %)
+   4       98.41 %         0.1262    28.53 dB      516 (13 %)
+   8       99.06 %         0.0968    30.84 dB     1032 (25 %)
+  16       99.63 %         0.0606    34.91 dB     2064 (50 %)
+  32       99.95 %         0.0226    43.49 dB     4128 (101 %)
+  64      100.00 %         0.0000     exact       8256 (202 %)
+
+Reading: the first singular value holds the overall brightness; a few more add the large
+structures (fields, roads); fine texture needs many. Storing k (m + n + 1) numbers saves space
+only while k is well below m n / (m + n + 1).

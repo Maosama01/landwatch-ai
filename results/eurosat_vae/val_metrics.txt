@@ -1,0 +1,26 @@
+LandWatch AI - EuroSAT variational autoencoder, evaluation on the VAL split
+Generated: 2026-11-21T12:26:57.939610
+Model: models/eurosat_vae (latent 64, best epoch 24, chosen on VAL)
+Images: 4050 of 64x64 RGB; device mps(0), DJL 0.40.0 / PyTorch 2.7.1
+Reconstructions use z = mu (no sampling). Losses are per image, in nats, summed over 3x64x64 values.
+
+Reconstruction loss (Bernoulli BCE): 7597.56
+KL to N(0, I):                       26.71
+Negative ELBO (sum):                 7624.27
+Reconstruction MSE (pixels 0..1):    0.004305  (PSNR 23.66 dB)
+Baseline MSE, mean TRAIN image:      0.023643  (PSNR 16.26 dB)
+MSE reduction vs the baseline:       81.8 %
+
+Reconstruction MSE per class (lower = easier to compress into 64 numbers):
+  AnnualCrop               450 images  MSE 0.003267  PSNR 24.86 dB
+  Forest                   450 images  MSE 0.000684  PSNR 31.65 dB
+  HerbaceousVegetation     450 images  MSE 0.003496  PSNR 24.56 dB
+  Highway                  375 images  MSE 0.004712  PSNR 23.27 dB
+  Industrial               375 images  MSE 0.014565  PSNR 18.37 dB
+  Pasture                  300 images  MSE 0.001794  PSNR 27.46 dB
+  PermanentCrop            375 images  MSE 0.004718  PSNR 23.26 dB
+  Residential              450 images  MSE 0.006425  PSNR 21.92 dB
+  River                    375 images  MSE 0.003454  PSNR 24.62 dB
+  SeaLake                  450 images  MSE 0.000800  PSNR 30.97 dB
+
+Evaluation time (model part): 2.3 s

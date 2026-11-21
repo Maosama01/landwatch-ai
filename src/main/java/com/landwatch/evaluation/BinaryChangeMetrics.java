@@ -1,5 +1,7 @@
 package com.landwatch.evaluation;
 
+import java.util.Locale;
+
 /**
  * Pixel-level evaluation of binary change detection.
  *
@@ -156,6 +158,46 @@ public final class BinaryChangeMetrics {
     }
 
     /** Multi-line, human-readable summary of the confusion matrix and all metrics. */
+    /** Pixels the method marks as change: TP + FP. */
+    public long predictedChangePixels() {
+        return truePositives + falsePositives;
+    }
+
+    /** Pixels that truly changed: TP + FN. */
+    public long trueChangePixels() {
+        return truePositives + falseNegatives;
+    }
+
+    /**
+     * Area error of the change class, {@code |predicted - true| = |FP - FN|} pixels. False alarms and
+     * misses cancel here, so a small area error does not mean the changes are in the right places
+     * (that is what IoU and F1 measure).
+     */
+    public long absoluteAreaErrorPixels() {
+        return Math.abs(falsePositives - falseNegatives);
+    }
+
+    /**
+     * Signed relative area error {@code (predicted - true) / true}: +0.10 means 10 % too much change
+     * is reported, -0.10 means 10 % too little. Returns NaN when nothing truly changed, because the
+     * ratio is then undefined; use {@link #absoluteAreaErrorPixels()} in that case.
+     */
+    public double relativeAreaError() {
+        long t = trueChangePixels();
+        return t == 0 ? Double.NaN : (predictedChangePixels() - t) / (double) t;
+    }
+
+    /** The area-error line of {@link #toReport()}; it handles the no-change case explicitly. */
+    public String areaErrorLine() {
+        double r = relativeAreaError();
+        if (Double.isNaN(r)) {
+            return String.format(Locale.ROOT, "Area error       : undefined (no true change); %d pixels predicted as change%n",
+                    predictedChangePixels());
+        }
+        return String.format(Locale.ROOT, "Area error       : %+.2f %%  (predicted %d vs true %d change pixels; |FP - FN| = %d)%n",
+                100 * r, predictedChangePixels(), trueChangePixels(), absoluteAreaErrorPixels());
+    }
+
     public String toReport() {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("Confusion matrix (pixels): TP=%d  FP=%d  FN=%d  TN=%d  (total %d)%n",
@@ -167,6 +209,7 @@ public final class BinaryChangeMetrics {
         sb.append(String.format("Macro F1         : %.4f%n", macroF1()));
         sb.append(String.format("Mean IoU         : %.4f%n", meanIoU()));
         sb.append(String.format("Cohen's kappa    : %.4f%n", kappa()));
+        sb.append(areaErrorLine());
         sb.append(String.format("Pixel accuracy   : %.4f  (misleading alone: classes are imbalanced)%n", accuracy()));
         return sb.toString();
     }
