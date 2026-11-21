@@ -2,7 +2,8 @@
 
 **Project report, Problem Statement 50** (geospatial intelligence: multitemporal satellite image analysis, land-use and building-change detection)
 
-Student: Anushka Parashar
+Name: Tanishq Khandelwal
+SAP ID: 590013276
 
 **Disclosure.** This project was built with substantial help from an AI coding assistant (Anthropic's Claude, through Claude Code); see [Acknowledgements and AI assistance](#acknowledgements-and-ai-assistance).
 

@@ -65,5 +65,5 @@ Every number in the documentation was produced by the code in this repository an
 
 | Person | Contribution |
 |---|---|
-| Anushka Parashar (presenting student) | *to be completed by the student* |
+| Tanishq Khandelwal (SAP ID: 590013276, presenting student) | *to be completed by the student* |
 | Others who helped | *to be completed by the student; the evaluation guidelines ask for collaborators to be named* |
